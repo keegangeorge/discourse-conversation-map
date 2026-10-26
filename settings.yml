@@ -1,0 +1,10 @@
+minimum_posts:
+  default: 12
+  min: 2
+  max: 1000
+  description: "Keep the native timeline on topics shorter than this."
+sample_posts:
+  default: 12
+  min: 0
+  max: 16
+  description: "Maximum evenly spaced posts to inspect once when opening the map. Unsampled positions remain neutral."

@@ -1,0 +1,24 @@
+{
+  "name": "discourse-conversation-map",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "repository": "github:keegangeorge/discourse-conversation-map",
+  "scripts": {
+    "lint": "pnpm lint:js && pnpm lint:css && pnpm lint:prettier",
+    "lint:js": "eslint javascripts test --max-warnings 0",
+    "lint:css": "stylelint 'common/**/*.scss'",
+    "lint:prettier": "prettier --check 'javascripts/**/*.{js,gjs}' 'test/**/*.{js,gjs}' 'common/**/*.scss' locales settings.yml about.json package.json .github"
+  },
+  "devDependencies": {
+    "@discourse/lint-configs": "3.9.0",
+    "eslint": "10.6.0",
+    "prettier": "3.8.1",
+    "stylelint": "17.5.0"
+  },
+  "engines": {
+    "node": ">=22.13.1"
+  },
+  "packageManager": "pnpm@10.28.0"
+}

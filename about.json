@@ -1,0 +1,11 @@
+{
+  "name": "Conversation map",
+  "component": true,
+  "authors": "Keegan George",
+  "about_url": "https://github.com/keegangeorge/discourse-conversation-map",
+  "license_url": "https://github.com/keegangeorge/discourse-conversation-map/blob/main/LICENSE",
+  "theme_version": "0.1.0",
+  "minimum_discourse_version": "2026.10.0-latest.1",
+  "assets": {},
+  "modifiers": {}
+}
