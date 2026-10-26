@@ -1,6 +1,6 @@
 import Component from "@glimmer/component";
 import { cached, tracked } from "@glimmer/tracking";
-import { fn, get } from "@ember/helper";
+import { fn } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
@@ -12,8 +12,6 @@ import DiscourseURL from "discourse/lib/url";
 import Topic from "discourse/models/topic";
 import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
 import dIcon from "discourse/ui-kit/helpers/d-icon";
-import dLoadingSpinner from "discourse/ui-kit/helpers/d-loading-spinner";
-import dPointerDrag from "discourse/ui-kit/modifiers/d-pointer-drag";
 import { i18n } from "discourse-i18n";
 import {
   clamp,
@@ -26,12 +24,17 @@ import { mapSession } from "../lib/conversation-map-session.js";
 import PreviewLoader from "../lib/preview-loader.js";
 import ScrubQueue from "../lib/scrub-queue.js";
 import { navigateToPost } from "../lib/topic-navigation.js";
+import ConversationMapMobile from "./conversation-map-mobile.gjs";
+import ConversationMapPreview from "./conversation-map-preview.gjs";
+import ConversationMapSurface from "./conversation-map-surface.gjs";
 
 let mapSequence = 0;
 
 export default class ConversationMap extends Component {
   @service appEvents;
 
+  @tracked ready = false;
+  @tracked navigating = false;
   @tracked target = null;
   @tracked expanded = false;
   @tracked pinned = false;
@@ -53,11 +56,14 @@ export default class ConversationMap extends Component {
     const generation = ++this.#generation;
     this.#eligibilityKey = null;
     this.#frame = requestAnimationFrame(() => {
+      this.#frame = null;
       if (generation !== this.#generation) {
         return;
       }
       this.#topicId = topicId;
       this.#cache.clear();
+      this.#loadedSnapshots = new WeakMap();
+      this.#numbers.clear();
       this.#cooked.clear();
       this.#sampled = false;
       this._streamSnapshot = null;
@@ -80,6 +86,7 @@ export default class ConversationMap extends Component {
         ?.querySelector(".timeline-scrollarea");
       this.target = area;
       this.collectPosts();
+      this.ready = true;
       this.currentIndex = Math.max(
         0,
         this.stream.indexOf(
@@ -95,11 +102,28 @@ export default class ConversationMap extends Component {
       this.#invalidate();
       cancelAnimationFrame(this.#frame);
       cancelAnimationFrame(this.#scrollFrame);
+      this.#scrollFrame = null;
       cancelAnimationFrame(this.#stateFrame);
+      cancelAnimationFrame(this.#pointerFrame);
+      this.#pointerFrame = null;
       this.#clearTimers();
       this.#scrubQueue.cancel();
       this.appEvents.off("topic:current-post-scrolled", this.scrolled);
     };
+  });
+
+  syncMobile = modifier((_element, [active, ready]) => {
+    if (!this.args.mobile || !ready) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      if (active) {
+        this.open();
+      } else {
+        this.close();
+      }
+    });
+    return () => cancelAnimationFrame(frame);
   });
 
   watchEligibility = modifier((_element, [enabled, filterKey]) => {
@@ -109,6 +133,7 @@ export default class ConversationMap extends Component {
       const generation = this.#generation;
       cancelAnimationFrame(this.#stateFrame);
       this.#stateFrame = requestAnimationFrame(() => {
+        this.#stateFrame = null;
         if (generation === this.#generation) {
           this.close();
           this.#sampled = false;
@@ -139,7 +164,13 @@ export default class ConversationMap extends Component {
     };
   });
 
+  #numbers = new Map();
+  #pointerFrame;
+  #pointerEvent;
+  #captureElement;
+  #pointerId;
   #cache = new Map();
+  #loadedSnapshots = new WeakMap();
   #cooked = new Map();
   #topicId;
   #sampled = false;
@@ -155,32 +186,55 @@ export default class ConversationMap extends Component {
   #scrollFrame;
   #stateFrame;
   #lastScrollEvent;
-  #loader = new PreviewLoader((ids) => {
-    const xhr = ajax(`/t/${this.#topicId}/posts.json`, {
-      data: { post_ids: ids, include_suggested: false },
-      ignoreUnsent: false,
-    });
-    const response = xhr.then((json) => json?.post_stream?.posts || []);
-    response.abort = () => xhr.abort();
-    return response;
-  });
+  #loader = new PreviewLoader(
+    (ids) => {
+      const xhr = ajax(`/t/${this.#topicId}/posts.json`, {
+        data: { post_ids: ids, include_suggested: false },
+        ignoreUnsent: false,
+      });
+      const response = xhr.then((json) => json?.post_stream?.posts || []);
+      response.abort = () => xhr.abort();
+      return response;
+    },
+    (posts) => {
+      if (!this.#topicId || this.isDestroying || !this.enabled) {
+        return;
+      }
+      let changed = false;
+      for (const post of posts) {
+        changed = this.#remember(post) || changed;
+      }
+      if (changed) {
+        this.revision++;
+      }
+    }
+  );
   #selection = 0;
 
   #scrubBounds = null;
 
-  #scrubQueue = new ScrubQueue((request, isCurrent) =>
-    this.#performNavigation(request, isCurrent)
+  #scrubQueue = new ScrubQueue(
+    (request, isCurrent) => this.#performNavigation(request, isCurrent),
+    100,
+    () => {},
+    (request) => request.id ?? `post:${request.number}:${request.offset ?? ""}`
   );
   @tracked _streamSnapshot = null;
 
   get enabled() {
     const stream = this.args.topic.postStream;
     return (
-      !this.args.fullscreen &&
+      (this.args.mobile || !this.args.fullscreen) &&
       !stream.isMegaTopic &&
       !this.args.topic.is_nested_view &&
       this.filterKey === "{}" &&
       stream.stream.length >= settings.minimum_posts
+    );
+  }
+
+  get mapLabel() {
+    return i18n(
+      themePrefix(this.args.mobile ? "mobile_map_label" : "map_label")
     );
   }
 
@@ -230,6 +284,23 @@ export default class ConversationMap extends Component {
     return trustHTML(
       `top: ${Math.min(percentForIndex(this.currentIndex, this.stream.length), 100 - height)}%; height: ${height}%;`
     );
+  }
+
+  get viewportStyle() {
+    if (!this.args.mobile) {
+      return this.currentStyle;
+    }
+    const position = percentForIndex(
+      this.selectedIndex ?? this.currentIndex,
+      this.stream.length
+    );
+    return trustHTML(
+      `top: clamp(0px, calc(${position}% - 12px), calc(100% - 24px)); height: 24px;`
+    );
+  }
+
+  get showPreviewCursor() {
+    return this.expanded && !this.args.mobile;
   }
 
   get cursorStyle() {
@@ -381,6 +452,21 @@ export default class ConversationMap extends Component {
   collectPosts() {
     let changed = false;
     for (const post of this.args.topic.postStream.posts) {
+      const snapshot = [
+        post.id,
+        post.post_number,
+        post.cooked,
+        post.username,
+        post.created_at,
+        post.action_code,
+        post.hidden,
+        post.deleted_at,
+      ];
+      const previous = this.#loadedSnapshots.get(post);
+      if (previous?.every((value, index) => value === snapshot[index])) {
+        continue;
+      }
+      this.#loadedSnapshots.set(post, snapshot);
       changed = this.#remember(post) || changed;
     }
     if (changed) {
@@ -474,6 +560,9 @@ export default class ConversationMap extends Component {
 
   @action
   close() {
+    this.#releaseCapture();
+    cancelAnimationFrame(this.#pointerFrame);
+    this.#pointerFrame = null;
     const restoreFocus = this.#mapElement
       ?.querySelector(".conversation-map__preview")
       ?.contains(document.activeElement);
@@ -509,23 +598,38 @@ export default class ConversationMap extends Component {
 
   @action
   startScrub(event) {
+    this.#captureElement = event.currentTarget;
+    this.#pointerId = event.pointerId;
+    this.#scrubQueue.cancel();
+    this.#navigationRequest?.abort();
     this.#scrubBounds = event.currentTarget.getBoundingClientRect();
     this.open();
     this.pinned = true;
     this.scrubbing = true;
-    this.#rememberReturnAnchor();
+    if (!this.args.mobile) {
+      this.#rememberReturnAnchor();
+    }
     this.#updateScrub(event, true);
   }
 
   @action
   moveScrub(event) {
     if (this.scrubbing) {
-      this.#updateScrub(event);
+      this.#pointerEvent = event;
+      if (!this.#pointerFrame) {
+        this.#pointerFrame = requestAnimationFrame(() => {
+          this.#pointerFrame = null;
+          this.#updateScrub(this.#pointerEvent);
+        });
+      }
     }
   }
 
   @action
   endScrub(event) {
+    this.#captureElement = null;
+    cancelAnimationFrame(this.#pointerFrame);
+    this.#pointerFrame = null;
     if (this.scrubbing) {
       this.#updateScrub(event, true);
       this.scrubbing = false;
@@ -535,6 +639,9 @@ export default class ConversationMap extends Component {
 
   @action
   cancelScrub() {
+    this.#captureElement = null;
+    cancelAnimationFrame(this.#pointerFrame);
+    this.#pointerFrame = null;
     this.#scrubQueue.cancel();
     this.#navigationRequest?.abort();
     this.scrubbing = false;
@@ -547,6 +654,8 @@ export default class ConversationMap extends Component {
     if (index === this.selectedIndex) {
       return;
     }
+    const direction =
+      Math.sign(index - (this.selectedIndex ?? this.currentIndex)) || 1;
     this.selectedIndex = index;
     this.failed = false;
     clearTimeout(this.#previewTimer);
@@ -554,22 +663,29 @@ export default class ConversationMap extends Component {
     const id = this.stream[index];
     this.loading = !this.#cache.has(id);
     if (this.loading) {
-      this.#previewTimer = setTimeout(async () => {
-        try {
-          await this.#fetch([id]);
-          if (selection === this.#selection && this.#topicId) {
-            this.failed = !this.#cache.has(id);
+      this.#previewTimer = setTimeout(
+        async () => {
+          try {
+            const nearby = [1, 2]
+              .map((step) => this.stream[index + direction * step])
+              .filter(Boolean);
+            await this.#fetch([id], true);
+            if (selection === this.#selection && this.#topicId) {
+              this.failed = !this.#cache.has(id);
+              this.#fetch(nearby).catch(() => {});
+            }
+          } catch {
+            if (selection === this.#selection && this.#topicId) {
+              this.failed = true;
+            }
+          } finally {
+            if (selection === this.#selection && this.#topicId) {
+              this.loading = false;
+            }
           }
-        } catch {
-          if (selection === this.#selection && this.#topicId) {
-            this.failed = true;
-          }
-        } finally {
-          if (selection === this.#selection && this.#topicId) {
-            this.loading = false;
-          }
-        }
-      }, 180);
+        },
+        this.scrubbing ? 60 : 140
+      );
     }
   }
 
@@ -580,6 +696,10 @@ export default class ConversationMap extends Component {
 
   @action
   selectLandmark(index) {
+    if (this.args.mobile) {
+      this.select(index);
+      return;
+    }
     this.open();
     this.pinned = true;
     this.#rememberReturnAnchor();
@@ -597,7 +717,11 @@ export default class ConversationMap extends Component {
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
-      this.close();
+      if (this.args.mobile) {
+        this.dismissMobile();
+      } else {
+        this.close();
+      }
       this.target
         ?.querySelector(".conversation-map__track")
         ?.focus({ preventScroll: true });
@@ -640,7 +764,9 @@ export default class ConversationMap extends Component {
     }
     const number = this.preview.number;
     this.#rememberReturnAnchor();
-    this.close();
+    if (!this.args.mobile) {
+      this.close();
+    }
     this.#scrubQueue.request({ number }, true);
   }
 
@@ -650,11 +776,29 @@ export default class ConversationMap extends Component {
     if (!anchor) {
       return;
     }
-    this.close();
+    if (!this.args.mobile) {
+      this.close();
+    }
     this.#scrubQueue.request(
       { number: anchor.number, offset: anchor.offset, returnAnchor: anchor },
       true
     );
+  }
+
+  @action
+  dismissMobile() {
+    this.close();
+    if (this.args.active) {
+      this.appEvents.trigger("topic:toggle-progress-expansion");
+    }
+  }
+
+  #releaseCapture() {
+    const element = this.#captureElement;
+    this.#captureElement = null;
+    if (element?.hasPointerCapture(this.#pointerId)) {
+      element.releasePointerCapture(this.#pointerId);
+    }
   }
 
   #rememberReturnAnchor() {
@@ -689,7 +833,9 @@ export default class ConversationMap extends Component {
       this.stream.length
     );
     this.select(index);
-    this.#scrubQueue.request({ id: this.stream[index] }, immediate);
+    if (!this.args.mobile) {
+      this.#scrubQueue.request({ id: this.stream[index] }, immediate);
+    }
   }
 
   async #performNavigation(request, isCurrent) {
@@ -701,17 +847,23 @@ export default class ConversationMap extends Component {
       !!this.#topicId;
     try {
       if (request.id) {
-        await this.#fetch([request.id]);
+        if (!this.#numbers.has(request.id)) {
+          await this.#fetch([request.id], true);
+        }
         if (!valid()) {
           return;
         }
-        const post = this.#cache.get(request.id);
-        if (!post || !this.args.topic.postStream.stream.includes(request.id)) {
+        const number = this.#numbers.get(request.id);
+        if (
+          !number ||
+          !this.args.topic.postStream.stream.includes(request.id)
+        ) {
           this.failed = true;
-          return;
+          return false;
         }
-        request = { ...request, number: post.number };
+        request = { ...request, number };
       }
+      this.navigating = true;
       const success = await this.#navigate(request, valid);
       if (
         success &&
@@ -722,14 +874,24 @@ export default class ConversationMap extends Component {
         mapSession(this.args.topic.id).anchor = null;
         this.returning = null;
       }
+      if (success && valid() && this.args.mobile) {
+        this.dismissMobile();
+      }
+      return success;
     } catch {
       if (valid()) {
         this.failed = true;
+      }
+      return false;
+    } finally {
+      if (!this.isDestroying) {
+        this.navigating = false;
       }
     }
   }
 
   #invalidate() {
+    this.#releaseCapture();
     this.#generation++;
     this.#selection++;
     this.#clearTimers();
@@ -751,7 +913,12 @@ export default class ConversationMap extends Component {
     if (post.hidden || post.deleted_at) {
       const deleted = this.#cache.delete(post.id);
       this.#cooked.delete(post.id);
+      this.#numbers.delete(post.id);
       return deleted;
+    }
+    this.#numbers.set(post.id, post.post_number);
+    if (this.#numbers.size > 512) {
+      this.#numbers.delete(this.#numbers.keys().next().value);
     }
     const cachedPost = this.#cache.get(post.id);
     if (
@@ -772,24 +939,28 @@ export default class ConversationMap extends Component {
     return false;
   }
 
-  async #fetch(ids) {
-    const generation = this.#generation;
+  async #fetch(ids, priority = false) {
     ids = ids.filter((id) => id && !this.#cache.has(id));
     if (!ids.length || !this.#topicId || !this.enabled) {
       return;
     }
-    const posts = await this.#loader.load(ids);
-    if (generation !== this.#generation || this.isDestroying || !this.enabled) {
-      return;
-    }
+    const missing = [];
     let changed = false;
-    for (const post of posts) {
-      if (post) {
-        changed = this.#remember(post) || changed;
+    for (const id of ids) {
+      const loaded = this.args.topic.postStream.posts.find(
+        (post) => post.id === id
+      );
+      if (loaded) {
+        changed = this.#remember(loaded) || changed;
+      } else {
+        missing.push(id);
       }
     }
     if (changed) {
       this.revision++;
+    }
+    if (missing.length) {
+      await this.#loader.load(missing, { priority });
     }
   }
 
@@ -851,6 +1022,7 @@ export default class ConversationMap extends Component {
           commit: (json) => {
             topic.updateFromJson(json);
             stream.updateFromJson(json.post_stream);
+            this.collectPosts();
             stream.setProperties({
               timelineLookup: json.timeline_lookup,
               loaded: true,
@@ -882,166 +1054,88 @@ export default class ConversationMap extends Component {
       class="conversation-map-mount"
       {{this.setup @topic.id}}
       {{this.watchEligibility this.enabled this.filterKey}}
+      {{this.syncMobile @active this.ready}}
     ></span>
-    {{#if (and this.enabled this.target)}}
-      {{#in-element this.target insertBefore=null}}
-        <div
-          class={{dConcatClass
-            "conversation-map"
-            (if this.expanded "is-expanded")
-          }}
-          {{this.mountMap this.expanded}}
-        >
-          <div class="conversation-map__surface">
-            <div
-              aria-controls={{if this.expanded this.previewId}}
-              aria-label={{i18n (themePrefix "map_label")}}
-              aria-orientation="vertical"
-              aria-valuemax={{this.stream.length}}
-              aria-valuemin="1"
-              aria-valuenow={{this.sliderValue}}
-              aria-valuetext={{this.positionLabel}}
-              class="conversation-map__track"
-              role="slider"
-              tabindex="0"
-              {{on "pointermove" this.move}}
-              {{dPointerDrag
-                onDragStart=this.startScrub
-                onDrag=this.moveScrub
-                onDragEnd=this.endScrub
-                onDragCancel=this.cancelScrub
-                draggingClass="is-scrubbing"
-                stopPropagation=true
-              }}
-              {{on "keydown" this.keydown}}
-            >
-              <div aria-hidden="true" class="conversation-map__texture">
-                {{#each this.ticks as |tick|}}<span
-                    class="conversation-map__tick"
-                    style={{tick.style}}
-                  ></span>{{/each}}
-                {{#each this.media as |post|}}
-                  <span
-                    class={{dConcatClass
-                      "conversation-map__media"
-                      (if post.images.length "has-image")
-                    }}
-                    style={{post.style}}
-                  >
-                    {{#if post.images.length}}<img
-                        alt=""
-                        loading="lazy"
-                        src={{get (get post.images "0") "url"}}
-                      />{{else}}{{dIcon post.icon}}{{/if}}
-                    {{#if (gt post.imageCount 1)}}<span
-                        class="conversation-map__media-count"
-                      >{{post.imageCount}}</span>{{/if}}
-                  </span>
-                {{/each}}
-                {{#if this.lastReadStyle}}<span
-                    class="conversation-map__last-read"
-                    style={{this.lastReadStyle}}
-                    title={{i18n (themePrefix "last_visit")}}
-                  ></span>{{/if}}
-                <span
-                  class="conversation-map__viewport"
-                  style={{this.currentStyle}}
-                ></span>
-                {{#each this.landmarks as |mark|}}<span
-                    class={{dConcatClass
-                      "conversation-map__landmark"
-                      mark.kind
-                    }}
-                    style={{mark.style}}
-                    title={{mark.label}}
-                  >{{dIcon mark.icon}}</span>{{/each}}
-                {{#if this.expanded}}<span
-                    class="conversation-map__cursor"
-                    style={{this.cursorStyle}}
-                  ></span>{{/if}}
-              </div>
-            </div>
-          </div>
-          <span
-            class="conversation-map__reading"
-            style={{this.currentStyle}}
-          >{{this.readingLabel}}</span>
-          {{#if this.expanded}}
-            <section
-              aria-busy={{if this.loading "true" "false"}}
-              aria-label={{i18n (themePrefix "title")}}
-              class="conversation-map__preview"
-              id={{this.previewId}}
-              role="dialog"
-              tabindex="-1"
-              {{on "keydown" this.keydown}}
-            >
-              <header class="conversation-map__header"><span
-                >{{this.previewLabel}}</span><button
-                  aria-label={{i18n (themePrefix "close")}}
-                  class="conversation-map__close"
-                  type="button"
-                  {{on "click" this.close}}
-                >{{dIcon "xmark"}}</button></header>
-              <div
-                aria-label={{i18n (themePrefix "landmarks")}}
-                class="conversation-map__landmarks"
+    {{#if @mobile}}
+      {{#if this.enabled}}
+        <ConversationMapMobile
+          @active={{@active}}
+          @compact={{@compact}}
+          @map={{this}}
+        />
+      {{/if}}
+    {{else}}
+      {{#if (and this.enabled this.target)}}
+        {{#in-element this.target insertBefore=null}}
+          <div
+            class={{dConcatClass
+              "conversation-map"
+              (if this.expanded "is-expanded")
+            }}
+            {{this.mountMap this.expanded}}
+          >
+            <ConversationMapSurface @map={{this}} />
+            <span
+              class="conversation-map__reading"
+              style={{this.currentStyle}}
+            >{{this.readingLabel}}</span>
+            {{#if this.expanded}}
+              <section
+                aria-busy={{if this.loading "true" "false"}}
+                aria-label={{i18n (themePrefix "title")}}
+                class="conversation-map__preview"
+                id={{this.previewId}}
+                role="dialog"
+                tabindex="-1"
+                {{on "keydown" this.keydown}}
               >
-                {{#each this.landmarks as |mark|}}<button
-                    class={{dConcatClass "conversation-map__chip" mark.kind}}
-                    title={{mark.label}}
+                <header class="conversation-map__header"><span
+                  >{{this.previewLabel}}</span><button
+                    aria-label={{i18n (themePrefix "close")}}
+                    class="conversation-map__close"
                     type="button"
-                    {{on "pointerenter" (fn this.previewLandmark mark.index)}}
-                    {{on "focus" (fn this.previewLandmark mark.index)}}
-                    {{on "click" (fn this.selectLandmark mark.index)}}
-                  >{{dIcon mark.icon}} #{{mark.number}}</button>{{/each}}
-              </div>
-              {{#if this.loading}}
-                <div class="conversation-map__status">
-                  {{dLoadingSpinner size="small"}}
-                  <span class="sr-only">{{i18n (themePrefix "loading")}}</span>
+                    {{on "click" this.close}}
+                  >{{dIcon "xmark"}}</button></header>
+                <div
+                  aria-label={{i18n (themePrefix "landmarks")}}
+                  class="conversation-map__landmarks"
+                >
+                  {{#each this.landmarks as |mark|}}<button
+                      class={{dConcatClass "conversation-map__chip" mark.kind}}
+                      title={{mark.label}}
+                      type="button"
+                      {{on "pointerenter" (fn this.previewLandmark mark.index)}}
+                      {{on "focus" (fn this.previewLandmark mark.index)}}
+                      {{on "click" (fn this.selectLandmark mark.index)}}
+                    >{{dIcon mark.icon}} #{{mark.number}}</button>{{/each}}
                 </div>
-              {{else if this.failed}}<p class="conversation-map__status">{{i18n
-                    (themePrefix "unavailable")
-                  }}</p>
-              {{else if this.preview}}
-                <div class="conversation-map__byline"><strong
-                  >{{this.preview.username}}</strong><span
-                  >#{{this.preview.number}} · {{this.previewDate}}</span></div>
-                {{#if this.preview.images.length}}<div
-                    class="conversation-map__photos"
-                  >{{#each this.preview.images as |image|}}<img
-                        alt={{image.alt}}
-                        src={{image.url}}
-                      />{{/each}}</div>{{/if}}
-                <p class="conversation-map__excerpt">{{this.preview.text}}</p>
+                <ConversationMapPreview @map={{this}} />
+                <footer class="conversation-map__footer"><span
+                  >{{this.staysLabel}}</span><div><button
+                      aria-label={{i18n (themePrefix "previous")}}
+                      type="button"
+                      {{on "click" (fn this.step -1)}}
+                    >{{dIcon "chevron-up"}}</button><button
+                      aria-label={{i18n (themePrefix "next")}}
+                      type="button"
+                      {{on "click" (fn this.step 1)}}
+                    >{{dIcon "chevron-down"}}</button></div></footer>
+                {{#if this.assignee}}<div
+                    class="conversation-map__assigned"
+                  >{{dIcon "user-plus"}}
+                    {{i18n (themePrefix "assigned")}}:
+                    {{this.assignee}}</div>{{/if}}
 
-              {{/if}}
-              <footer class="conversation-map__footer"><span
-                >{{this.staysLabel}}</span><div><button
-                    aria-label={{i18n (themePrefix "previous")}}
-                    type="button"
-                    {{on "click" (fn this.step -1)}}
-                  >{{dIcon "chevron-up"}}</button><button
-                    aria-label={{i18n (themePrefix "next")}}
-                    type="button"
-                    {{on "click" (fn this.step 1)}}
-                  >{{dIcon "chevron-down"}}</button></div></footer>
-              {{#if this.assignee}}<div
-                  class="conversation-map__assigned"
-                >{{dIcon "user-plus"}}
-                  {{i18n (themePrefix "assigned")}}:
-                  {{this.assignee}}</div>{{/if}}
-
-            </section>
-          {{/if}}
-        </div>
-      {{/in-element}}
+              </section>
+            {{/if}}
+          </div>
+        {{/in-element}}
+      {{/if}}
+      {{#if this.returning}}<button
+          class="conversation-map-return btn btn-default"
+          type="button"
+          {{on "click" this.returnToReading}}
+        >{{dIcon "arrow-rotate-left"}} {{this.returnLabel}}</button>{{/if}}
     {{/if}}
-    {{#if this.returning}}<button
-        class="conversation-map-return btn btn-default"
-        type="button"
-        {{on "click" this.returnToReading}}
-      >{{dIcon "arrow-rotate-left"}} {{this.returnLabel}}</button>{{/if}}
   </template>
 }

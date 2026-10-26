@@ -30,3 +30,7 @@ en:
   landmarks: "Jump to a landmark"
   previous: "Previous preview"
   next: "Next preview"
+  mobile_map_label: "Conversation map. Drag or use arrow keys to preview, then choose Open post."
+  mobile_landmarks: "Preview a landmark"
+  mobile_hint: "Drag to preview"
+  open_post: "Open post"
