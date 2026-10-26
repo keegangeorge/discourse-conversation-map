@@ -114,4 +114,87 @@ module("Unit | Lib | conversation-map-preview-loader", function () {
       "synchronous errors also settle"
     );
   });
+  test("foreground previews are served before queued background samples", async function (assert) {
+    const calls = [];
+    let release;
+    const loader = new PreviewLoader((ids) => {
+      calls.push(ids);
+      if (calls.length === 1) {
+        return new Promise((resolve) => {
+          release = () => resolve(ids.map((id) => ({ id })));
+        });
+      }
+      return Promise.resolve(ids.map((id) => ({ id })));
+    });
+    const active = loader.load([1]);
+    const samples = loader.load(
+      Array.from({ length: 25 }, (_, index) => index + 2)
+    );
+    const selected = loader.load([99], { priority: true });
+    release();
+    await Promise.all([active, samples, selected]);
+    assert.strictEqual(
+      calls[1][0],
+      99,
+      "the selected post leads the next bounded batch"
+    );
+    assert.true(
+      calls.every((ids) => ids.length <= 20),
+      "priority never bypasses batch limits"
+    );
+    assert.strictEqual(
+      calls.flat().filter((id) => id === 99).length,
+      1,
+      "priority requests remain deduplicated"
+    );
+  });
+  test("successful batches publish immediately even if a later batch fails", async function (assert) {
+    const cached = new Map();
+    const completions = [];
+    const calls = [];
+    const loader = new PreviewLoader(
+      (ids) => {
+        calls.push(ids);
+        return new Promise((resolve, reject) =>
+          completions.push({ resolve, reject, ids })
+        );
+      },
+      (posts) => posts.forEach((post) => cached.set(post.id, post))
+    );
+    const sample = loader.load(
+      Array.from({ length: 25 }, (_, index) => index + 1)
+    );
+    const rejection = assert.rejects(
+      sample,
+      /offline/,
+      "a later failure still reaches the caller"
+    );
+    const first = completions.shift();
+    first.resolve(first.ids.map((id) => ({ id })));
+    await Promise.resolve();
+    assert.strictEqual(
+      cached.size,
+      20,
+      "the first batch is available while the second is pending"
+    );
+    const selected =
+      cached.get(1) || (await loader.load([1], { priority: true }))[0];
+    assert.strictEqual(
+      selected.id,
+      1,
+      "foreground selection can use an early result immediately"
+    );
+    assert.strictEqual(
+      calls.length,
+      2,
+      "foreground reuse does not request a completed ID again"
+    );
+    completions.shift().reject(new Error("offline"));
+    await rejection;
+    assert.strictEqual(
+      cached.size,
+      20,
+      "later failure does not discard successful batches"
+    );
+  });
 });

@@ -1,4 +1,5 @@
 import { module, test } from "qunit";
+import sinon from "sinon";
 import ScrubQueue from "../../discourse/lib/scrub-queue.js";
 
 module("Unit | Lib | conversation-map-scrub-queue", function () {
@@ -104,6 +105,99 @@ module("Unit | Lib | conversation-map-scrub-queue", function () {
       errors,
       ["navigation failed"],
       "failure is handled rather than becoming an unhandled rejection"
+    );
+    queue.cancel();
+  });
+  test("duplicate destinations preserve the in-flight response and do not navigate twice", async function (assert) {
+    let release;
+    let finish;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const done = new Promise((resolve) => {
+      finish = resolve;
+    });
+    const calls = [];
+    const queue = new ScrubQueue(
+      async (value, current) => {
+        calls.push(value.id);
+        await gate;
+        assert.true(
+          current(),
+          "same-position jitter does not invalidate the response"
+        );
+        finish();
+      },
+      100,
+      () => {},
+      (value) => value.id
+    );
+    queue.request({ id: 3 }, true);
+    queue.request({ id: 3 });
+    queue.request({ id: 3 }, true);
+    release();
+    await done;
+    await Promise.resolve();
+    queue.request({ id: 3 }, true);
+    assert.deepEqual(
+      calls,
+      [3],
+      "release does not repeat the committed destination"
+    );
+    queue.cancel();
+  });
+
+  test("a slow request does not add another full throttle interval", async function (assert) {
+    const clock = sinon.useFakeTimers({
+      toFake: ["Date", "setTimeout", "clearTimeout"],
+    });
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const calls = [];
+    const queue = new ScrubQueue(async (value) => {
+      calls.push(value);
+      if (value === 1) {
+        await gate;
+      }
+    }, 100);
+    try {
+      queue.request(1, true);
+      queue.request(2);
+      clock.tick(300);
+      release();
+      await Promise.resolve();
+      await Promise.resolve();
+      clock.tick(1);
+      assert.deepEqual(
+        calls,
+        [1, 2],
+        "the next destination starts as soon as the slow request finishes"
+      );
+    } finally {
+      queue.cancel();
+      clock.restore();
+    }
+  });
+
+  test("failed and cancelled destinations can be requested again", async function (assert) {
+    const calls = [];
+    const queue = new ScrubQueue(async (value) => {
+      calls.push(value);
+      return false;
+    });
+    queue.request(1, true);
+    await Promise.resolve();
+    queue.request(1, true);
+    await Promise.resolve();
+    queue.cancel();
+    queue.request(1, true);
+    await Promise.resolve();
+    assert.deepEqual(
+      calls,
+      [1, 1, 1],
+      "failure and cancellation never poison a destination"
     );
     queue.cancel();
   });

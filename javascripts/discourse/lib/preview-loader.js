@@ -1,15 +1,25 @@
 export default class PreviewLoader {
   #load;
+  #onBatch;
   #waiting = new Map();
   #pending = new Set();
+  #priority = new Set();
   #active = null;
   #generation = 0;
 
-  constructor(load) {
+  constructor(load, onBatch = () => {}) {
     this.#load = load;
+    this.#onBatch = onBatch;
   }
 
-  load(ids) {
+  load(ids, { priority = false } = {}) {
+    if (priority) {
+      ids.forEach((id) => {
+        if (!this.#waiting.has(id) || this.#pending.has(id)) {
+          this.#priority.add(id);
+        }
+      });
+    }
     const promises = ids.map((id) => {
       if (this.#waiting.has(id)) {
         return this.#waiting.get(id).promise;
@@ -25,7 +35,10 @@ export default class PreviewLoader {
       return promise;
     });
     while (this.#pending.size > 32) {
-      const oldest = this.#pending.values().next().value;
+      const oldest =
+        [...this.#pending].find((id) => !this.#priority.has(id)) ??
+        this.#pending.values().next().value;
+      this.#priority.delete(oldest);
       this.#pending.delete(oldest);
       this.#waiting.get(oldest).resolve(null);
       this.#waiting.delete(oldest);
@@ -37,6 +50,7 @@ export default class PreviewLoader {
   cancel() {
     this.#generation++;
     this.#pending.clear();
+    this.#priority.clear();
     for (const item of this.#waiting.values()) {
       item.resolve(null);
     }
@@ -49,8 +63,15 @@ export default class PreviewLoader {
       return;
     }
     const generation = this.#generation;
-    const ids = [...this.#pending].slice(0, 20);
-    ids.forEach((id) => this.#pending.delete(id));
+    const ids = [...this.#pending]
+      .sort(
+        (a, b) => Number(this.#priority.has(b)) - Number(this.#priority.has(a))
+      )
+      .slice(0, 20);
+    ids.forEach((id) => {
+      this.#pending.delete(id);
+      this.#priority.delete(id);
+    });
     let active;
     try {
       active = this.#load(ids);
@@ -66,6 +87,7 @@ export default class PreviewLoader {
     try {
       const posts = await active;
       if (generation === this.#generation) {
+        this.#onBatch(posts);
         const byId = new Map(posts.map((post) => [post.id, post]));
         for (const id of ids) {
           this.#waiting.get(id)?.resolve(byId.get(id) || null);

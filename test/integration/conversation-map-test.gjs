@@ -8,6 +8,7 @@ import {
   triggerEvent,
   triggerKeyEvent,
   waitFor,
+  waitUntil,
 } from "@ember/test-helpers";
 import { module, test } from "qunit";
 import sinon from "sinon";
@@ -178,5 +179,96 @@ module("Integration | Component | ConversationMap", function (hooks) {
     assert
       .dom(".conversation-map__byline")
       .includesText("#9", "the preview still identifies the real post number");
+  });
+  test("a topic change cancels old measurements without disabling new scroll updates", async function (assert) {
+    const model = tracked(topic());
+    await render(
+      <template>
+        <div class="timeline-container"><div
+            class="timeline-scrollarea"
+          ></div><ConversationMap @topic={{model.value}} /></div>
+      </template>
+    );
+    await waitFor(".conversation-map__track");
+    const events = this.owner.lookup("service:app-events");
+    const clock = sinon.useFakeTimers({
+      toFake: ["requestAnimationFrame", "cancelAnimationFrame"],
+    });
+    try {
+      events.trigger("topic:current-post-scrolled", {
+        postIndex: 3,
+        percent: 1,
+      });
+      model.value = { ...topic(), id: 124 };
+      await settled();
+      clock.tick(20);
+      await settled();
+      events.trigger("topic:current-post-scrolled", {
+        postIndex: 2,
+        percent: 0.5,
+      });
+      clock.tick(20);
+      await settled();
+      assert
+        .dom(".conversation-map__track")
+        .hasAttribute(
+          "aria-valuenow",
+          "2",
+          "the new topic keeps receiving reading-position updates"
+        );
+    } finally {
+      clock.restore();
+    }
+  });
+  test("unchanged loaded posts do not churn when the stream exceeds the preview cache", async function (assert) {
+    const model = topic();
+    model.postStream.posts = Array.from({ length: 161 }, (_, index) => ({
+      id: 1000 + index,
+      post_number: index + 1,
+      cooked: `<p>Post ${index}</p>`,
+      username: "sam",
+    }));
+    model.postStream.stream = model.postStream.posts.map((post) => post.id);
+    await render(
+      <template>
+        <div class="timeline-container"><div
+            class="timeline-scrollarea"
+          ></div><ConversationMap @topic={{model}} /></div>
+      </template>
+    );
+    await waitFor(".conversation-map__track");
+    const createElement = sinon.spy(document, "createElement");
+    const events = this.owner.lookup("service:app-events");
+    try {
+      events.trigger("topic:current-post-scrolled", {
+        postIndex: 2,
+        percent: 0.1,
+      });
+      await waitUntil(
+        () =>
+          find(".conversation-map__track").getAttribute("aria-valuenow") === "2"
+      );
+      assert.strictEqual(
+        createElement.withArgs("template").callCount,
+        0,
+        "unchanged posts are not reparsed because of cache eviction"
+      );
+      model.postStream.posts[0].cooked = "<p>Edited opening</p>";
+      events.trigger("topic:current-post-scrolled", {
+        postIndex: 3,
+        percent: 0.2,
+      });
+      await waitUntil(
+        () =>
+          find(".conversation-map__track").getAttribute("aria-valuenow") === "3"
+      );
+      assert.strictEqual(
+        createElement.withArgs("template").callCount,
+        1,
+        "an actual post edit is still inspected"
+      );
+    } finally {
+      createElement.restore();
+    }
   });
 });
