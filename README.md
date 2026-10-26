@@ -6,13 +6,15 @@ The normal timeline stays quiet while you read. Hover to inspect the conversatio
 
 ## Demo
 
-[Watch the demo](https://github.com/keegangeorge/discourse-conversation-map/releases/download/v0.1.0/conversation-map-demo.mp4)
+https://github.com/user-attachments/assets/8ba9a8ce-849e-41ef-8141-478f5d1aa9d2
+
+[Download the demo](https://github.com/keegangeorge/discourse-conversation-map/releases/download/v0.1.0/conversation-map-demo.mp4)
 
 | Native timeline | Expanded conversation map |
 | --- | --- |
 | ![Native topic timeline](https://github.com/keegangeorge/discourse-conversation-map/releases/download/v0.1.0/before.png) | ![Conversation map with a gallery preview](https://github.com/keegangeorge/discourse-conversation-map/releases/download/v0.1.0/after.png) |
 
-The video and screenshots are release assets rather than files bundled with the component.
+The inline video is a GitHub attachment. Downloadable video and screenshots are also available as release assets; no media is bundled with the component.
 
 ## Features
 
