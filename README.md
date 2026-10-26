@@ -97,7 +97,7 @@ bin/qunit --rails-env development --theme-id THEME_COMPONENT_ID \
   --qunit-path /theme-qunit --filter conversation-map
 ```
 
-GitHub Actions uses Discourse's shared theme workflow for linting and tests. Machine-specific setup scripts, local demo data, screenshots, recordings, and credentials are not part of the repository.
+GitHub Actions uses Discourse's shared theme workflow for linting and tests against the minimum supported Core tag, `v2026.10.0-latest.1`. This keeps the preview release reproducible and avoids an upstream image-worker socket-path startup failure on the moving `latest` branch. Machine-specific setup scripts, local demo data, screenshots, recordings, and credentials are not part of the repository.
 
 ## License
 
