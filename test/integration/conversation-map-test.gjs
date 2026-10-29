@@ -103,8 +103,9 @@ module("Integration | Component | ConversationMap", function (hooks) {
       await render(
         <template>
           <div class="timeline-container">
-            <div class="timeline-scrollarea"><div class="timeline-scroller">Native
-                timeline</div></div>
+            <div class="timeline-scrollarea"><div
+                class="timeline-scroller"
+              >Native timeline</div></div>
             <ConversationMap @topic={{model}} />
           </div>
         </template>
