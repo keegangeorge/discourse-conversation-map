@@ -147,6 +147,41 @@ module("Integration | Component | ConversationMap", function (hooks) {
     }
   });
 
+  test("landmark focus survives a refreshed post snapshot", async function (assert) {
+    const model = topic();
+    model.bookmarks = [
+      { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },
+    ];
+    await render(
+      <template>
+        <div class="timeline-container">
+          <div class="timeline-scrollarea"><div class="timeline-scroller">Native
+              timeline</div></div>
+          <ConversationMap @topic={{model}} />
+        </div>
+      </template>
+    );
+    await waitFor(".conversation-map__track");
+    await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
+    await triggerKeyEvent(".conversation-map__track", "keydown", "ArrowDown");
+    const landmark = find(".conversation-map__landmark");
+    await focus(landmark);
+    model.postStream.posts[1].cooked = "<p>Refreshed middle</p>";
+    this.owner.lookup("service:app-events").trigger("topic:current-post-scrolled", {
+      postIndex: 2,
+      percent: 0.5,
+    });
+    await waitUntil(() =>
+      find(".conversation-map__preview").textContent.includes("Refreshed middle")
+    );
+    assert.strictEqual(
+      find(".conversation-map__landmark"),
+      landmark,
+      "the same post retains its button when snapshots refresh"
+    );
+    assert.dom(landmark).isFocused("keyboard focus remains on the landmark");
+  });
+
   test("pointer exit does not remove a keyboard-focused preview", async function (assert) {
     const model = topic();
     await render(

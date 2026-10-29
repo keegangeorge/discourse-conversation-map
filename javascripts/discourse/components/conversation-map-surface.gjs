@@ -69,7 +69,7 @@ export default <template>
       </div>
     </div>
     <div class="conversation-map__landmark-controls">
-      {{#each @map.landmarks as |mark|}}<button
+      {{#each @map.landmarks key="id" as |mark|}}<button
           aria-label={{mark.label}}
           class={{dConcatClass "conversation-map__landmark" mark.kind}}
           style={{mark.style}}
