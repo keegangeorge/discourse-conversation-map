@@ -68,8 +68,15 @@ export default <template>
           ></span>{{/if}}
       </div>
     </div>
-    <div class="conversation-map__landmark-controls">
-      {{#each @map.landmarks key="id" as |mark|}}<button
+    <div
+      class="conversation-map__landmark-controls"
+      {{@map.measureLandmarks}}
+    >
+      <div
+        class="conversation-map__landmark-content"
+        style={{@map.landmarkContentStyle}}
+      >
+      {{#each @map.directLandmarks key="id" as |mark|}}<button
           aria-label={{mark.label}}
           class={{dConcatClass "conversation-map__landmark" mark.kind}}
           style={{mark.style}}
@@ -77,6 +84,7 @@ export default <template>
           type="button"
           {{on "click" (fn @map.selectLandmark mark.index)}}
         >{{dIcon mark.icon}}</button>{{/each}}
+      </div>
     </div>
   </div>
 </template>

@@ -200,8 +200,17 @@
 
   &__landmark-controls {
     position: absolute;
-    inset: 12px 6px;
-    pointer-events: none;
+    inset-block: 10px;
+    inset-inline-end: 2px;
+    width: 38px;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  &__landmark-content {
+    position: relative;
+    min-height: 100%;
   }
 
   &.is-mobile &__landmark-controls {
@@ -210,7 +219,7 @@
 
   &__landmark {
     position: absolute;
-    inset-inline-end: 0;
+    inset-inline-end: 4px;
     transform: translateY(-50%);
     font-size: 11px;
     box-sizing: border-box;

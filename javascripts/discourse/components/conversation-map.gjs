@@ -21,6 +21,7 @@ import {
   sampleIds,
 } from "../lib/conversation-map.js";
 import { mapSession } from "../lib/conversation-map-session.js";
+import { layoutLandmarks } from "../lib/landmark-layout.js";
 import PreviewLoader from "../lib/preview-loader.js";
 import ScrubQueue from "../lib/scrub-queue.js";
 import { navigateToPost } from "../lib/topic-navigation.js";
@@ -33,6 +34,7 @@ let mapSequence = 0;
 export default class ConversationMap extends Component {
   @service appEvents;
 
+  @tracked landmarkHeight = 0;
   @tracked ready = false;
   @tracked navigating = false;
   @tracked target = null;
@@ -163,6 +165,34 @@ export default class ConversationMap extends Component {
       );
     };
   });
+
+  measureLandmarks = modifier((element) => {
+    const observer = new ResizeObserver(() => {
+      this.landmarkHeight = element.clientHeight;
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  });
+
+  get landmarkLayout() {
+    return layoutLandmarks(
+      this.landmarks,
+      this.landmarkHeight,
+      this.stream.length
+    );
+  }
+
+  get landmarkContentStyle() {
+    return trustHTML(`height: ${this.landmarkLayout.contentHeight}px;`);
+  }
+
+  get directLandmarks() {
+    const { centers } = this.landmarkLayout;
+    return this.landmarks.map((mark, index) => ({
+      ...mark,
+      style: trustHTML(`top: ${centers[index]}px;`),
+    }));
+  }
 
   #numbers = new Map();
   #pointerFrame;
