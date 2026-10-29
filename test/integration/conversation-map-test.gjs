@@ -116,11 +116,16 @@ module("Integration | Component | ConversationMap", function (hooks) {
         .hasTagName("button", "the marker exposes its action directly");
       assert
         .dom(".conversation-map__landmark")
-        .hasAttribute("aria-label", "Bookmarked", "the marker has an accessible name");
-      assert.notOk(
+        .hasAttribute(
+          "aria-label",
+          "Bookmarked",
+          "the marker has an accessible name"
+        );
+      assert.strictEqual(
         find(".conversation-map__track").contains(
           find(".conversation-map__landmark")
         ),
+        false,
         "the button is not nested inside the slider widget"
       );
 
@@ -129,7 +134,11 @@ module("Integration | Component | ConversationMap", function (hooks) {
 
       assert
         .dom(".conversation-map__track")
-        .hasAttribute("aria-valuenow", "2", "the clicked marker selects its post");
+        .hasAttribute(
+          "aria-valuenow",
+          "2",
+          "the clicked marker selects its post"
+        );
       assert.true(jump.calledOnceWith(4), "the marker navigates to its post");
       assert.true(url.calledOnce, "the marker updates the topic URL");
     } finally {
