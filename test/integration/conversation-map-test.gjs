@@ -12,6 +12,7 @@ import {
 } from "@ember/test-helpers";
 import { module, test } from "qunit";
 import sinon from "sinon";
+import DiscourseURL from "discourse/lib/url";
 import { setupRenderingTest } from "discourse/tests/helpers/component-test";
 import ConversationMap from "../../discourse/components/conversation-map.gjs";
 
@@ -32,6 +33,9 @@ function topic() {
     bookmarks: [],
     accepted_answers: [],
     postStream: new StreamFixture(),
+    urlForPostNumber(number) {
+      return `/t/test/123/${number}`;
+    },
   };
 }
 
@@ -86,6 +90,52 @@ module("Integration | Component | ConversationMap", function (hooks) {
     assert
       .dom(".conversation-map__track")
       .isFocused("focus returns to the surviving track");
+  });
+
+  test("desktop landmarks are direct navigation controls", async function (assert) {
+    const model = topic();
+    model.bookmarks = [
+      { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },
+    ];
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    try {
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="timeline-scrollarea"><div class="timeline-scroller">Native
+                timeline</div></div>
+            <ConversationMap @topic={{model}} />
+          </div>
+        </template>
+      );
+      await waitFor(".conversation-map__landmark");
+
+      assert
+        .dom(".conversation-map__landmark")
+        .hasTagName("button", "the marker exposes its action directly");
+      assert
+        .dom(".conversation-map__landmark")
+        .hasAttribute("aria-label", "Bookmarked", "the marker has an accessible name");
+      assert.notOk(
+        find(".conversation-map__track").contains(
+          find(".conversation-map__landmark")
+        ),
+        "the button is not nested inside the slider widget"
+      );
+
+      await click(".conversation-map__landmark");
+      await waitUntil(() => jump.called);
+
+      assert
+        .dom(".conversation-map__track")
+        .hasAttribute("aria-valuenow", "2", "the clicked marker selects its post");
+      assert.true(jump.calledOnceWith(4), "the marker navigates to its post");
+      assert.true(url.calledOnce, "the marker updates the topic URL");
+    } finally {
+      jump.restore();
+      url.restore();
+    }
   });
 
   test("pointer exit does not remove a keyboard-focused preview", async function (assert) {

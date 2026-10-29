@@ -60,6 +60,7 @@
     }
 
     .conversation-map__texture,
+    .conversation-map__landmark-controls,
     .conversation-map__reading {
       visibility: hidden;
     }
@@ -193,17 +194,42 @@
     z-index: 3;
   }
 
+  &__landmark-controls {
+    position: absolute;
+    inset: 10px 6px;
+    pointer-events: none;
+  }
+
+  &.is-mobile &__landmark-controls {
+    display: none;
+  }
+
   &__landmark {
     position: absolute;
     inset-inline-start: calc(100% + 5px);
     transform: translateY(-50%);
     font-size: 11px;
-    padding: 2px;
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    padding: 0;
     line-height: 1;
+    border: 0;
     border-radius: 3px;
     background: var(--secondary);
     color: var(--primary-high);
+    cursor: pointer;
+    pointer-events: auto;
     z-index: 3;
+
+    &:hover {
+      background: var(--primary-very-low);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--tertiary);
+    }
 
     &.answer {
       color: var(--success);
