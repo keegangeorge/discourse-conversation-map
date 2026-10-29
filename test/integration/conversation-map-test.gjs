@@ -167,12 +167,16 @@ module("Integration | Component | ConversationMap", function (hooks) {
     const landmark = find(".conversation-map__landmark");
     await focus(landmark);
     model.postStream.posts[1].cooked = "<p>Refreshed middle</p>";
-    this.owner.lookup("service:app-events").trigger("topic:current-post-scrolled", {
-      postIndex: 2,
-      percent: 0.5,
-    });
+    this.owner
+      .lookup("service:app-events")
+      .trigger("topic:current-post-scrolled", {
+        postIndex: 2,
+        percent: 0.5,
+      });
     await waitUntil(() =>
-      find(".conversation-map__preview").textContent.includes("Refreshed middle")
+      find(".conversation-map__preview").textContent.includes(
+        "Refreshed middle"
+      )
     );
     assert.strictEqual(
       find(".conversation-map__landmark"),
