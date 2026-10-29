@@ -7,9 +7,15 @@ module("Unit | Conversation Map | landmark layout", function () {
       const marks = [0, 1, 2, 98, 99].map((index) => ({ index }));
       const { centers, contentHeight } = layoutLandmarks(marks, height, 100);
       assert.true(centers[0] >= 16, "first target has room for its outline");
-      assert.true(centers.at(-1) <= contentHeight - 16, "last target is contained");
+      assert.true(
+        centers.at(-1) <= contentHeight - 16,
+        "last target is contained"
+      );
       for (let index = 1; index < centers.length; index++) {
-        assert.true(centers[index] - centers[index - 1] >= 28, "24px actions have a gap");
+        assert.true(
+          centers[index] - centers[index - 1] >= 28,
+          "24px actions have a gap"
+        );
       }
     }
   });
@@ -19,6 +25,9 @@ module("Unit | Conversation Map | landmark layout", function () {
     const { centers, contentHeight } = layoutLandmarks(marks, 200, 32);
     assert.true(contentHeight > 200);
     assert.strictEqual(centers.length, 32);
-    assert.deepEqual(layoutLandmarks([], 200, 0), { contentHeight: 200, centers: [] });
+    assert.deepEqual(layoutLandmarks([], 200, 0), {
+      contentHeight: 200,
+      centers: [],
+    });
   });
 });
