@@ -194,9 +194,13 @@
     z-index: 3;
   }
 
+  &.is-expanded:not(.is-mobile) &__track {
+    inset-inline-end: 36px;
+  }
+
   &__landmark-controls {
     position: absolute;
-    inset: 10px 6px;
+    inset: 12px 6px;
     pointer-events: none;
   }
 
@@ -206,9 +210,10 @@
 
   &__landmark {
     position: absolute;
-    inset-inline-start: calc(100% + 5px);
+    inset-inline-end: 0;
     transform: translateY(-50%);
     font-size: 11px;
+    box-sizing: border-box;
     width: 24px;
     height: 24px;
     display: grid;
