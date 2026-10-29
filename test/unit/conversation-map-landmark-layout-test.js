@@ -1,5 +1,5 @@
 import { module, test } from "qunit";
-import { layoutLandmarks } from "../../javascripts/discourse/lib/landmark-layout";
+import { layoutLandmarks } from "../../javascripts/discourse/lib/landmark-layout.js";
 
 module("Unit | Conversation Map | landmark layout", function () {
   test("clustered and endpoint actions stay disjoint and contained", function (assert) {

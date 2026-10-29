@@ -174,26 +174,6 @@ export default class ConversationMap extends Component {
     return () => observer.disconnect();
   });
 
-  get landmarkLayout() {
-    return layoutLandmarks(
-      this.landmarks,
-      this.landmarkHeight,
-      this.stream.length
-    );
-  }
-
-  get landmarkContentStyle() {
-    return trustHTML(`height: ${this.landmarkLayout.contentHeight}px;`);
-  }
-
-  get directLandmarks() {
-    const { centers } = this.landmarkLayout;
-    return this.landmarks.map((mark, index) => ({
-      ...mark,
-      style: trustHTML(`top: ${centers[index]}px;`),
-    }));
-  }
-
   #numbers = new Map();
   #pointerFrame;
   #pointerEvent;
@@ -250,6 +230,27 @@ export default class ConversationMap extends Component {
     (request) => request.id ?? `post:${request.number}:${request.offset ?? ""}`
   );
   @tracked _streamSnapshot = null;
+
+  get landmarkLayout() {
+    return layoutLandmarks(
+      this.landmarks,
+      this.landmarkHeight,
+      this.stream.length
+    );
+  }
+
+  get landmarkContentStyle() {
+    return trustHTML(`height: ${this.landmarkLayout.contentHeight}px;`);
+  }
+
+  get directLandmarks() {
+    const { centers } = this.landmarkLayout;
+    return this.landmarks.map((mark, index) => ({
+      ...mark,
+      style: trustHTML(`top: ${centers[index]}px;`),
+    }));
+  }
+
 
   get enabled() {
     const stream = this.args.topic.postStream;
