@@ -122,9 +122,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
           "the marker has an accessible name"
         );
       assert.false(
-        find(".conversation-map__track").contains(
-          find(".conversation-map__landmark")
-        ),
+        find(".conversation-map__track").contains(find(".conversation-map__landmark")),
         "the button is not nested inside the slider widget"
       );
 
