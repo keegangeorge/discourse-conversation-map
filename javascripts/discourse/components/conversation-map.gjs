@@ -251,7 +251,6 @@ export default class ConversationMap extends Component {
     }));
   }
 
-
   get enabled() {
     const stream = this.args.topic.postStream;
     return (
