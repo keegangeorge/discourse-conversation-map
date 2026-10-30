@@ -60,6 +60,7 @@
     }
 
     .conversation-map__texture,
+    .conversation-map__landmark-controls,
     .conversation-map__reading {
       visibility: hidden;
     }
@@ -193,17 +194,56 @@
     z-index: 3;
   }
 
+  &.is-expanded:not(.is-mobile) &__track {
+    inset-inline-end: 42px;
+  }
+
+  &__landmark-controls {
+    position: absolute;
+    inset-block: 10px;
+    inset-inline-end: 2px;
+    width: 38px;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  &__landmark-content {
+    position: relative;
+    min-height: 100%;
+  }
+
+  &.is-mobile &__landmark-controls {
+    display: none;
+  }
+
   &__landmark {
     position: absolute;
-    inset-inline-start: calc(100% + 5px);
+    inset-inline-end: 4px;
     transform: translateY(-50%);
     font-size: 11px;
-    padding: 2px;
+    box-sizing: border-box;
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    padding: 0;
     line-height: 1;
+    border: 0;
     border-radius: 3px;
     background: var(--secondary);
     color: var(--primary-high);
+    cursor: pointer;
+    pointer-events: auto;
     z-index: 3;
+
+    &:hover {
+      background: var(--primary-very-low);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--tertiary);
+    }
 
     &.answer {
       color: var(--success);
