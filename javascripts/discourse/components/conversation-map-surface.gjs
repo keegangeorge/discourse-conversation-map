@@ -80,6 +80,7 @@ export default <template>
             title={{mark.label}}
             type="button"
             {{on "click" (fn @map.selectLandmark mark.index)}}
+            {{on "keydown" @map.landmarkKeydown}}
           >{{dIcon mark.icon}}</button>{{/each}}
       </div>
     </div>

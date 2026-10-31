@@ -147,6 +147,48 @@ module("Integration | Component | ConversationMap", function (hooks) {
     }
   });
 
+  test("Escape from a direct landmark closes the map without taking slider keys", async function (assert) {
+    const model = topic();
+    model.bookmarks = [
+      { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },
+    ];
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    try {
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="timeline-scrollarea"><div
+                class="timeline-scroller"
+              >Native timeline</div></div>
+            <ConversationMap @topic={{model}} />
+          </div>
+        </template>
+      );
+      await waitFor(".conversation-map__landmark");
+      await click(".conversation-map__landmark");
+      await waitUntil(() => jump.called);
+      await focus(".conversation-map__landmark");
+      const value = find(".conversation-map__track").getAttribute(
+        "aria-valuenow"
+      );
+      for (const key of ["ArrowDown", "ArrowUp", "Home", "End", "Enter", " "]) {
+        await triggerKeyEvent(".conversation-map__landmark", "keydown", key);
+        assert
+          .dom(".conversation-map__track")
+          .hasAttribute("aria-valuenow", value);
+      }
+      assert.dom(".conversation-map").hasClass("is-expanded");
+      await triggerKeyEvent(".conversation-map__landmark", "keydown", "Escape");
+      assert.dom(".conversation-map").doesNotHaveClass("is-expanded");
+      assert.dom(".conversation-map__preview").doesNotExist();
+      assert.dom(".conversation-map__track").isFocused();
+    } finally {
+      jump.restore();
+      url.restore();
+    }
+  });
+
   test("landmark focus survives a refreshed post snapshot", async function (assert) {
     const model = topic();
     model.bookmarks = [
