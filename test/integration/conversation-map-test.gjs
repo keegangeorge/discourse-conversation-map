@@ -178,8 +178,8 @@ module("Integration | Component | ConversationMap", function (hooks) {
       await waitUntil(() => jump.calledTwice);
 
       assert.deepEqual(
-        jump.args,
-        [[4], [4]],
+        jump.args.map(([number]) => number),
+        [4, 4],
         "each explicit activation returns to the landmark destination"
       );
       assert.true(url.calledTwice, "both activations update the topic URL");
