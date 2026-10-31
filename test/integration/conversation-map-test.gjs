@@ -169,10 +169,14 @@ module("Integration | Component | ConversationMap", function (hooks) {
       await click(".conversation-map__landmark");
       await waitUntil(() => jump.called);
       await focus(".conversation-map__landmark");
-      const value = find(".conversation-map__track").getAttribute("aria-valuenow");
+      const value = find(".conversation-map__track").getAttribute(
+        "aria-valuenow"
+      );
       for (const key of ["ArrowDown", "ArrowUp", "Home", "End", "Enter", " "]) {
         await triggerKeyEvent(".conversation-map__landmark", "keydown", key);
-        assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", value);
+        assert
+          .dom(".conversation-map__track")
+          .hasAttribute("aria-valuenow", value);
       }
       assert.dom(".conversation-map").hasClass("is-expanded");
       await triggerKeyEvent(".conversation-map__landmark", "keydown", "Escape");
