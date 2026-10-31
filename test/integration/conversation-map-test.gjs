@@ -147,6 +147,47 @@ module("Integration | Component | ConversationMap", function (hooks) {
     }
   });
 
+  test("the same desktop landmark can be activated after native scrolling", async function (assert) {
+    const model = topic();
+    model.bookmarks = [
+      { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },
+    ];
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    try {
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="timeline-scrollarea"><div class="timeline-scroller">Native
+                timeline</div></div>
+            <ConversationMap @topic={{model}} />
+          </div>
+        </template>
+      );
+      await waitFor(".conversation-map__landmark");
+      await click(".conversation-map__landmark");
+      await waitUntil(() => jump.calledOnce);
+
+      model.current_post_number = 1;
+      this.owner
+        .lookup("service:app-events")
+        .trigger("topic:current-post-scrolled", { postIndex: 1, percent: 0 });
+      await settled();
+      await click(".conversation-map__landmark");
+      await waitUntil(() => jump.calledTwice);
+
+      assert.deepEqual(
+        jump.args,
+        [[4], [4]],
+        "each explicit activation returns to the landmark destination"
+      );
+      assert.true(url.calledTwice, "both activations update the topic URL");
+    } finally {
+      jump.restore();
+      url.restore();
+    }
+  });
+
   test("landmark focus survives a refreshed post snapshot", async function (assert) {
     const model = topic();
     model.bookmarks = [
