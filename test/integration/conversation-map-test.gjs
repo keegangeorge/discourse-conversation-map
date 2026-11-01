@@ -297,7 +297,11 @@ module("Integration | Component | ConversationMap", function (hooks) {
       await click(".conversation-map-return");
       await waitUntil(() => jump.calledTwice);
       await waitUntil(() => !find(".conversation-map-return"));
-      assert.strictEqual(jump.secondCall.args[0], 1, "return uses the saved post");
+      assert.strictEqual(
+        jump.secondCall.args[0],
+        1,
+        "return uses the saved post"
+      );
       assert.dom(".conversation-map-return").doesNotExist("success clears it");
     } finally {
       jump.restore();
