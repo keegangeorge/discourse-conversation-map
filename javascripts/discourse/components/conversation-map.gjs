@@ -738,6 +738,13 @@ export default class ConversationMap extends Component {
   }
 
   @action
+  landmarkKeydown(event) {
+    if (event.key === "Escape") {
+      this.keydown(event);
+    }
+  }
+
+  @action
   step(delta) {
     this.select((this.selectedIndex ?? this.currentIndex) + delta);
   }
