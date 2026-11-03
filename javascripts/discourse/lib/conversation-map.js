@@ -48,7 +48,10 @@ function srcsetCandidates(srcset, width) {
       continue;
     }
     const end = remaining.indexOf(",");
-    const descriptor = (end < 0 ? remaining : remaining.slice(0, end)).replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, "");
+    const descriptor = (end < 0 ? remaining : remaining.slice(0, end)).replace(
+      /^[\t\n\f\r ]+|[\t\n\f\r ]+$/g,
+      ""
+    );
     remaining = end < 0 ? "" : remaining.slice(end + 1);
     const match = descriptor.match(/^(\d+(?:\.\d*)?|\.\d+)(w|x)$/);
     if (!match) {
