@@ -94,6 +94,158 @@ module("Unit | Lib | conversation-map", function () {
     );
   });
 
+  test("untrusted srcset candidates fall back without relaxing the origin boundary", function (assert) {
+    const origin = "https://forum.example";
+    const cases = [
+      [
+        '<img src="/src.png" srcset="https://remote.example/a.png 320w">',
+        "/src.png",
+        "plain src fallback",
+      ],
+      [
+        '<img src="https://remote.example/src.png" srcset="https://remote.example/a.png 320w, /other.png 640w">',
+        "/other.png",
+        "another srcset candidate",
+      ],
+      [
+        '<img src="/src.png" srcset="/small.png 100w, https://remote.example/a.png 320w, /large.png 640w">',
+        "/small.png",
+        "remaining candidates keep ascending order",
+      ],
+      [
+        '<img src="/src.png" srcset="http://[invalid 320w, /valid.png 640w">',
+        "/valid.png",
+        "malformed URL fallback",
+      ],
+      [
+        '<img src="https://remote.example/src.png" srcset="https://remote.example/a.png 320w">',
+        null,
+        "all remote stays excluded",
+      ],
+      [
+        '<img src="javascript:alert(1)" srcset="data:image/png;base64,AAAA 320w">',
+        null,
+        "unsafe schemes stay excluded",
+      ],
+      [
+        '<img src="/src.png" srcset="http://forum.example/a.png 320w, https://forum.example:444/a.png 640w">',
+        "/src.png",
+        "scheme and port are part of origin",
+      ],
+    ];
+    for (const [cooked, expected, message] of cases) {
+      assert.deepEqual(
+        inspectPost({ id: 1, cooked }, origin).images.map((image) => image.url),
+        expected ? [origin + expected] : [],
+        message
+      );
+    }
+  });
+
+  test("srcset keeps its original size preference and handles empty or malformed entries", function (assert) {
+    const origin = "https://forum.example";
+    const cases = [
+      ["/small.png 100w, /chosen.png 400w, /large.png 800w", "/chosen.png"],
+      ["/small.png 100w, /largest.png 200w", "/largest.png"],
+      ["/chosen.png 1x, /large.png 2x", "/chosen.png"],
+      ["/chosen.png .5x, /large.png 2x", "/chosen.png"],
+      ["/chosen.png .5x", "/chosen.png"],
+      ["/chosen.png 1.x, /large.png 2x", "/chosen.png"],
+      ["", "/src.png"],
+      ["bad descriptor, , /wrong.png nope", "/src.png"],
+    ];
+    for (const [srcset, expected] of cases) {
+      const post = inspectPost(
+        {
+          id: 1,
+          cooked: `<img width="690" src="/src.png" srcset="${srcset}" alt="Photo">`,
+        },
+        origin
+      );
+      assert.deepEqual(
+        post.images,
+        [{ url: origin + expected, alt: "Photo" }],
+        srcset || "empty srcset"
+      );
+    }
+  });
+
+  test("commas within unsafe srcset URLs never become local candidates", function (assert) {
+    const origin = "https://forum.example";
+    for (const srcset of [
+      "data:image/png;base64,AAAA 320w",
+      "data:image/svg+xml,local.png 320w",
+      "data:image/svg+xml,&nbsp;local.png 320w",
+      "https://remote.example/a.png,&nbsp;local.png 320w",
+      "data:image/svg+xml,&#x2003;local.png 320w",
+      "https://remote.example/a,b.png 320w",
+    ]) {
+      assert.deepEqual(
+        inspectPost(
+          {
+            id: 1,
+            cooked: `<img src="javascript:alert(1)" srcset="${srcset}">`,
+          },
+          origin
+        ).images,
+        [],
+        srcset
+      );
+      assert.deepEqual(
+        inspectPost(
+          { id: 1, cooked: `<img src="/safe.png" srcset="${srcset}">` },
+          origin
+        ).images.map((image) => image.url),
+        [origin + "/safe.png"],
+        "only the explicit safe fallback is used"
+      );
+    }
+    const post = inspectPost(
+      {
+        id: 1,
+        cooked:
+          '<img src="/src.png" srcset="https://remote.example/a.png 320w,/local.png 640w">',
+      },
+      origin
+    );
+    assert.strictEqual(
+      post.images[0].url,
+      origin + "/local.png",
+      "separator whitespace is optional"
+    );
+  });
+
+  test("fallback does not expose concealed media or add extra thumbnails for duplicate images", function (assert) {
+    const origin = "https://forum.example";
+    const img =
+      '<img src="/src.png" srcset="https://remote.example/a.png 320w, /local.png 640w">';
+    for (const cooked of [
+      `<span class="spoiler">${img}</span>`,
+      `<details>${img}</details>`,
+      `<div hidden>${img}</div>`,
+      `<div aria-hidden="true">${img}</div>`,
+    ]) {
+      assert.deepEqual(
+        inspectPost({ id: 1, cooked }, origin).images,
+        [],
+        "concealed candidate remains excluded"
+      );
+    }
+    for (const flags of [{ hidden: true }, { deleted_at: "2026-01-01" }]) {
+      assert.deepEqual(
+        inspectPost({ id: 1, cooked: img, ...flags }, origin).images,
+        [],
+        "concealed post remains excluded"
+      );
+    }
+    const duplicate = inspectPost({ id: 1, cooked: img + img }, origin);
+    assert.deepEqual(
+      duplicate.images,
+      [{ url: origin + "/local.png", alt: "" }],
+      "one accepted candidate per img, duplicates do not trigger another fallback"
+    );
+  });
+
   test("galleries are deduplicated and preview image count is bounded", function (assert) {
     const post = inspectPost(
       {
@@ -162,6 +314,28 @@ module("Unit | Lib | conversation-map", function () {
       );
       assert.strictEqual(post.text, "", "concealed text is excluded");
       assert.deepEqual(post.images, [], "concealed images are excluded");
+    }
+  });
+
+  test("srcset fallback preserves configured CDN trust boundaries", function (assert) {
+    const origin = "https://forum.example";
+    const bases = configuredUploadBases(
+      { s3BaseUrl: "https://bucket.example/shared", s3Cdn: "https://cdn.example/site" },
+      origin
+    );
+    for (const [srcset, src, expected] of [
+      ["https://cdn.example/other/a.png 320w, https://cdn.example/site/b.png 640w", "https://tracker.example/c.png", "https://cdn.example/site/b.png"],
+      ["https://bucket.example/shared/a.png 320w", "https://cdn.example/site/c.png", "https://cdn.example/site/c.png"],
+      ["https://cdn.example/other/a.png 320w", "/local.png", "https://forum.example/local.png"],
+      ["https://cdn.example/site/a.png 320w, /local.png 640w", "/src.png", "https://cdn.example/site/a.png"],
+      ["https://cdn.example/other/a.png 320w", "https://bucket.example/shared/c.png", null],
+    ]) {
+      const result = inspectPost(
+        { id: 1, cooked: `<img src="${src}" srcset="${srcset}">` },
+        origin,
+        bases
+      );
+      assert.deepEqual(result.images.map((image) => image.url), expected ? [expected] : [], srcset);
     }
   });
 
