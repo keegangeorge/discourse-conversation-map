@@ -78,7 +78,9 @@ export function inspectPost(post, origin) {
       // A rejected remote candidate must not hide a usable local thumbnail.
       const sources = [
         preferred?.url,
-        ...candidates.filter((candidate) => candidate !== preferred).map((candidate) => candidate.url),
+        ...candidates
+          .filter((candidate) => candidate !== preferred)
+          .map((candidate) => candidate.url),
         img.getAttribute("src"),
       ];
       for (const source of sources) {
