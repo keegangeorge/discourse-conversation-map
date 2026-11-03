@@ -313,6 +313,48 @@ module("Integration | Component | ConversationMap", function (hooks) {
     }
   });
 
+  test("the same desktop landmark can be activated after native scrolling", async function (assert) {
+    const model = topic();
+    model.bookmarks = [
+      { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },
+    ];
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    try {
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="timeline-scrollarea"><div
+                class="timeline-scroller"
+              >Native timeline</div></div>
+            <ConversationMap @topic={{model}} />
+          </div>
+        </template>
+      );
+      await waitFor(".conversation-map__landmark");
+      await click(".conversation-map__landmark");
+      await waitUntil(() => jump.calledOnce);
+
+      model.current_post_number = 1;
+      this.owner
+        .lookup("service:app-events")
+        .trigger("topic:current-post-scrolled", { postIndex: 1, percent: 0 });
+      await settled();
+      await click(".conversation-map__landmark");
+      await waitUntil(() => jump.calledTwice);
+
+      assert.deepEqual(
+        jump.args.map(([number]) => number),
+        [4, 4],
+        "each explicit activation returns to the landmark destination"
+      );
+      assert.true(url.calledTwice, "both activations update the topic URL");
+    } finally {
+      jump.restore();
+      url.restore();
+    }
+  });
+
   test("landmark focus survives a refreshed post snapshot", async function (assert) {
     const model = makeTopic();
     model.bookmarks = [
@@ -417,6 +459,62 @@ module("Integration | Component | ConversationMap", function (hooks) {
     assert
       .dom(".conversation-map__preview")
       .doesNotExist("the old preview does not reopen");
+  });
+
+  test("filtered topics hide Return without losing the reading anchor", async function (assert) {
+    const model = topic();
+    model.id = 7123;
+    model.bookmarks = [
+      { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },
+    ];
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    try {
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="timeline-scrollarea"><div
+                class="timeline-scroller"
+              >Native timeline</div></div>
+            <ConversationMap @topic={{model}} />
+          </div>
+        </template>
+      );
+      await waitFor(".conversation-map__landmark");
+      assert.dom(".conversation-map-return").doesNotExist("no anchor yet");
+      await click(".conversation-map__landmark");
+      await waitUntil(() => jump.calledOnce);
+      await waitFor(".conversation-map-return");
+      const returnLabel = find(".conversation-map-return").textContent;
+      assert.true(jump.calledWith(4), "the landmark navigated first");
+
+      model.postStream.streamFilters = { username_filters: "sam" };
+      await settled();
+      assert.dom(".conversation-map").doesNotExist("filtered map is absent");
+      assert
+        .dom(".conversation-map-return")
+        .doesNotExist("unavailable Return is not offered");
+      assert.true(jump.calledOnce, "filtering does not trigger a return");
+
+      model.postStream.streamFilters = {};
+      await waitFor(".conversation-map-return");
+      assert.dom(".conversation-map").exists("unfiltered map is restored");
+      assert
+        .dom(".conversation-map-return")
+        .hasText(returnLabel, "the original reading anchor survives");
+      await click(".conversation-map-return");
+      await waitUntil(() => jump.calledTwice);
+      await waitUntil(() => !find(".conversation-map-return"));
+      assert.strictEqual(
+        jump.secondCall.args[0],
+        1,
+        "return uses the saved post"
+      );
+      assert.dom(".conversation-map-return").doesNotExist("success clears it");
+    } finally {
+      jump.restore();
+      url.restore();
+    }
   });
 
   test("non-consecutive post numbers retain ordinal keyboard positions", async function (assert) {
