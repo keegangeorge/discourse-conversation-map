@@ -88,7 +88,9 @@ export default class ConversationMapMobile extends Component {
   @action
   returnFromCompact(event) {
     this.#returnButton =
-      document.activeElement === event.currentTarget ? event.currentTarget : null;
+      document.activeElement === event.currentTarget
+        ? event.currentTarget
+        : null;
     this.args.map.returnToReading();
   }
 

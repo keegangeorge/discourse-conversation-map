@@ -293,7 +293,9 @@ module("Integration | Component | ConversationMapMobile", function (hooks) {
         // the second case to model focus moving during asynchronous navigation.
         find(".conversation-map-mobile-return").click();
         await waitFor(".conversation-map-mobile-return", { count: 0 });
-        assert.dom(ownsFocus ? "#topic-progress" : ".other-control").isFocused();
+        assert
+          .dom(ownsFocus ? "#topic-progress" : ".other-control")
+          .isFocused();
       }
     } finally {
       jump.restore();
