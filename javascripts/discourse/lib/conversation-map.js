@@ -71,26 +71,34 @@ export function inspectPost(post, origin) {
           width: Number(size) * (unit === "x" ? img.width || 690 : 1),
         }))
         .sort((a, b) => a.width - b.width);
-      const source =
-        (
-          candidates.find((candidate) => candidate.width >= 320) ||
-          candidates.at(-1)
-        )?.url || img.getAttribute("src");
-      if (!source) {
-        continue;
-      }
-      try {
-        const url = new URL(source, origin);
-        // Reuse local thumbnails only. Don't load third-party tracking images on hover.
-        if (
-          url.origin === origin &&
-          /^https?:$/.test(url.protocol) &&
-          !images.some((image) => image.url === url.href)
-        ) {
-          images.push({ url: url.href, alt: img.getAttribute("alt") || "" });
+      const preferred =
+        candidates.find((candidate) => candidate.width >= 320) ||
+        candidates.at(-1);
+      // Keep the existing size preference, then try the other candidates and src.
+      // A rejected remote candidate must not hide a usable local thumbnail.
+      const sources = [
+        preferred?.url,
+        ...candidates.filter((candidate) => candidate !== preferred).map((candidate) => candidate.url),
+        img.getAttribute("src"),
+      ];
+      for (const source of sources) {
+        if (!source) {
+          continue;
         }
-      } catch {
-        // Malformed image URLs are not previewable.
+        try {
+          const url = new URL(source, origin);
+          // Reuse local thumbnails only. Don't load third-party tracking images on hover.
+          if (url.origin !== origin || !/^https?:$/.test(url.protocol)) {
+            continue;
+          }
+          if (!images.some((image) => image.url === url.href)) {
+            images.push({ url: url.href, alt: img.getAttribute("alt") || "" });
+          }
+          // Each img contributes at most one thumbnail, even if it is a duplicate.
+          break;
+        } catch {
+          // A malformed candidate must not prevent trying the remaining sources.
+        }
       }
     }
   }
