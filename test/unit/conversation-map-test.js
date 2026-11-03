@@ -277,9 +277,20 @@ module("Unit | Lib | conversation-map", function () {
         { s3BaseUrl: "https://bucket.example/site", s3Cdn: invalid },
         origin
       );
-      assert.deepEqual(bases, ["https://bucket.example/site"], "invalid CDN base ignored before normalization");
       assert.deepEqual(
-        inspectPost({ id: 1, cooked: '<img src="https://shared.example/other-tenant/a.jpg">' }, origin, bases).images,
+        bases,
+        ["https://bucket.example/site"],
+        "invalid CDN base ignored before normalization"
+      );
+      assert.deepEqual(
+        inspectPost(
+          {
+            id: 1,
+            cooked: '<img src="https://shared.example/other-tenant/a.jpg">',
+          },
+          origin,
+          bases
+        ).images,
         [],
         "malformed CDN configuration never permits sibling tenants"
       );
