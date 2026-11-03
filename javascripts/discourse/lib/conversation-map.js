@@ -34,15 +34,16 @@ export function sampleIds(stream, limit, knownIds = new Set()) {
 // These bases come only from Discourse's server-rendered bootstrap, never from
 // cooked post markup. Static CDN uploads also retain the site's base URI.
 export function configuredUploadBases(setup, origin) {
+  const hasRawControls = (value) => Array.from(value).some(
+    (char) => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127
+  );
   const parse = (value) => {
     // Check the raw input first: URL parsing erases dot segments, which must
     // never turn an invalid tenant base into broader root-origin permission.
     if (
       typeof value !== "string" ||
       !/^(https?:)?\/\//i.test(value) ||
-      Array.from(value).some(
-        (char) => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127
-      ) ||
+      hasRawControls(value) ||
       /%(?:2e|2f|5c|25)/i.test(value) ||
       /(?:^|\/)\.{1,2}(?:\/|$)/.test(value) ||
       value.includes("\\")
@@ -69,9 +70,11 @@ export function configuredUploadBases(setup, origin) {
   };
   const bases = [];
   const cdn = parse(setup?.cdn);
-  const baseUri = setup?.baseUri || "";
+  const baseUri = setup?.baseUri ?? "";
   if (
     cdn &&
+    typeof baseUri === "string" &&
+    !hasRawControls(baseUri) &&
     (baseUri === "" || /^\/(?!\/)[^?#\\]*$/.test(baseUri)) &&
     !/%|(?:^|\/)\.{1,2}(?:\/|$)/.test(baseUri)
   ) {
