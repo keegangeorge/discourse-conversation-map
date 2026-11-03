@@ -11,6 +11,7 @@ import {
 import { module, test } from "qunit";
 import sinon from "sinon";
 import DiscourseURL from "discourse/lib/url";
+import Topic from "discourse/models/topic";
 import { setupRenderingTest } from "discourse/tests/helpers/component-test";
 import ConversationMap from "../../discourse/components/conversation-map.gjs";
 import {
@@ -312,6 +313,61 @@ module("Integration | Component | ConversationMapMobile", function (hooks) {
     } finally {
       jump.restore();
       url.restore();
+    }
+  });
+
+  test("failed or cancelled Return cannot restore focus in another topic", async function (assert) {
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    const transform = sinon.stub(Topic, "applyTransformations");
+    try {
+      for (const outcome of ["failure", "cancelled"]) {
+        resetMapSessionForUrl("/latest");
+        jump.resetHistory();
+        const current = tracked(new TopicFixture());
+        mapSession(current.value.id).anchor = { number: 1 };
+        let resolve, reject;
+        transform.returns(new Promise((yes, no) => { resolve = yes; reject = no; }));
+        await render(
+          <template>
+            <div class="topic-navigation">
+              <nav id="topic-progress" tabindex="-1">1 / 3</nav>
+              <ConversationMap
+                @compact={{true}}
+                @mobile={{true}}
+                @topic={{current.value}}
+              />
+            </div>
+          </template>
+        );
+        await waitFor("#topic-progress[tabindex='0']");
+        await waitFor(".conversation-map-mobile-return");
+        const button = find(".conversation-map-mobile-return");
+        button.focus();
+        button.click();
+        await waitUntil(() => jump.calledOnce);
+        if (outcome === "failure") {
+          reject(new Error("Synthetic navigation failure"));
+          await waitFor(".conversation-map-mobile-return:not([disabled])");
+          assert.dom(".conversation-map-mobile-return").exists("failed Return retains its anchor");
+        }
+        button.blur();
+        assert.strictEqual(document.activeElement, document.body, "focus is unowned before switching topics");
+        const next = new TopicFixture();
+        next.id = 124;
+        current.value = next;
+        await waitFor(".conversation-map-mobile-return", { count: 0 });
+        if (outcome === "cancelled") {
+          resolve();
+        }
+        await settled();
+        await new Promise(requestAnimationFrame);
+        assert.strictEqual(document.activeElement, document.body, "the old request cannot focus the new topic's progress");
+      }
+    } finally {
+      jump.restore();
+      url.restore();
+      transform.restore();
     }
   });
 

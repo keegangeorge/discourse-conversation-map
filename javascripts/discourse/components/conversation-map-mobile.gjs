@@ -14,7 +14,7 @@ import ConversationMapSurface from "./conversation-map-surface.gjs";
 export default class ConversationMapMobile extends Component {
   @service appEvents;
 
-  progressControl = modifier((element, [compact, returning]) => {
+  progressControl = modifier((element, [compact]) => {
     if (!compact) {
       return;
     }
@@ -30,18 +30,6 @@ export default class ConversationMapMobile extends Component {
       previousTabIndex = progress.getAttribute("tabindex");
       progress.setAttribute("tabindex", "0");
       progress.addEventListener("keydown", this.openFromKeyboard);
-      if (!returning && this.#returnButton) {
-        const button = this.#returnButton;
-        this.#returnButton = null;
-        // Removal blurs the activated button to body. Do not steal focus if
-        // the reader moved to another control while navigation was pending.
-        if (
-          document.activeElement === button ||
-          document.activeElement === document.body
-        ) {
-          progress.focus({ preventScroll: true });
-        }
-      }
       if (this.#restoreFocus) {
         progress.focus({ preventScroll: true });
         this.#restoreFocus = false;
@@ -83,16 +71,6 @@ export default class ConversationMapMobile extends Component {
   });
 
   #restoreFocus = false;
-  #returnButton = null;
-
-  @action
-  returnFromCompact(event) {
-    this.#returnButton =
-      document.activeElement === event.currentTarget
-        ? event.currentTarget
-        : null;
-    this.args.map.returnToReading();
-  }
 
   @action
   openFromKeyboard(event) {
@@ -125,7 +103,7 @@ export default class ConversationMapMobile extends Component {
   <template>
     <span
       class="conversation-map-mount"
-      {{this.progressControl @compact @map.returning}}
+      {{this.progressControl @compact}}
     ></span>
     {{#if (and @active @map.expanded)}}
       <dialog
@@ -220,7 +198,7 @@ export default class ConversationMapMobile extends Component {
         class="conversation-map-mobile-return btn btn-default"
         disabled={{@map.navigating}}
         type="button"
-        {{on "click" this.returnFromCompact}}
+        {{on "click" @map.returnToReading}}
         {{this.replaceBackButton}}
       >{{dIcon "arrow-rotate-left"}} {{@map.returnLabel}}</button>
     {{/if}}

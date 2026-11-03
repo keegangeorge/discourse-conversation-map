@@ -808,7 +808,7 @@ export default class ConversationMap extends Component {
   }
 
   @action
-  returnToReading() {
+  returnToReading(event) {
     const anchor = this.returning;
     if (!anchor) {
       return;
@@ -816,8 +816,19 @@ export default class ConversationMap extends Component {
     if (!this.args.mobile) {
       this.close();
     }
+    const returnControl =
+      this.args.mobile &&
+      event?.currentTarget?.classList.contains("conversation-map-mobile-return") &&
+      document.activeElement === event.currentTarget
+        ? event.currentTarget
+        : null;
     this.#scrubQueue.request(
-      { number: anchor.number, offset: anchor.offset, returnAnchor: anchor },
+      {
+        number: anchor.number,
+        offset: anchor.offset,
+        returnAnchor: anchor,
+        returnControl,
+      },
       true
     );
   }
@@ -908,8 +919,26 @@ export default class ConversationMap extends Component {
         request.returnAnchor === this.returning &&
         request.returnAnchor
       ) {
+        const progress = request.returnControl
+          ?.closest(".topic-navigation")
+          ?.querySelector("#topic-progress");
         mapSession(this.args.topic.id).anchor = null;
         this.returning = null;
+        if (progress) {
+          requestAnimationFrame(() => {
+            // This request must still own the navigation, topic and focus.
+            // Removing its focused button blurs to body; another focused
+            // control means the reader moved on while the request was pending.
+            if (
+              valid() &&
+              progress.isConnected &&
+              (document.activeElement === request.returnControl ||
+                document.activeElement === document.body)
+            ) {
+              progress.focus({ preventScroll: true });
+            }
+          });
+        }
       }
       if (success && valid() && this.args.mobile) {
         this.dismissMobile();
