@@ -735,6 +735,8 @@ export default class ConversationMap extends Component {
     this.pinned = true;
     this.#rememberReturnAnchor();
     this.select(index);
+    // A landmark click is a new navigation intent, not another scrub update.
+    this.#scrubQueue.cancel();
     this.#scrubQueue.request({ id: this.stream[index] }, true);
   }
 
@@ -1179,7 +1181,7 @@ export default class ConversationMap extends Component {
           </div>
         {{/in-element}}
       {{/if}}
-      {{#if this.returning}}<button
+      {{#if (and this.enabled this.returning)}}<button
           class="conversation-map-return btn btn-default"
           type="button"
           {{on "click" this.returnToReading}}
