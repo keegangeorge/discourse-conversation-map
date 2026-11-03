@@ -35,10 +35,7 @@ export function sampleIds(stream, limit, knownIds = new Set()) {
 // cooked post markup. Static CDN uploads also retain the site's base URI.
 export function configuredUploadBases(setup, origin) {
   const parse = (value) => {
-    if (
-      typeof value !== "string" ||
-      !/^(https?:)?\/\//i.test(value)
-    ) {
+    if (typeof value !== "string" || !/^(https?:)?\/\//i.test(value)) {
       return null;
     }
     try {
