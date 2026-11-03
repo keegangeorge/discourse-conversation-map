@@ -147,6 +147,9 @@ module("Unit | Lib | conversation-map", function () {
       ["/small.png 100w, /chosen.png 400w, /large.png 800w", "/chosen.png"],
       ["/small.png 100w, /largest.png 200w", "/largest.png"],
       ["/chosen.png 1x, /large.png 2x", "/chosen.png"],
+      ["/chosen.png .5x, /large.png 2x", "/chosen.png"],
+      ["/chosen.png .5x", "/chosen.png"],
+      ["/chosen.png 1.x, /large.png 2x", "/chosen.png"],
       ["", "/src.png"],
       ["bad descriptor, , /wrong.png nope", "/src.png"],
     ];

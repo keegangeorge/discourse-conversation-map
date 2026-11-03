@@ -49,7 +49,7 @@ function srcsetCandidates(srcset, width) {
     const end = remaining.indexOf(",");
     const descriptor = (end < 0 ? remaining : remaining.slice(0, end)).trim();
     remaining = end < 0 ? "" : remaining.slice(end + 1);
-    const match = descriptor.match(/^(\d+(?:\.\d+)?)(w|x)$/);
+    const match = descriptor.match(/^(\d+(?:\.\d*)?|\.\d+)(w|x)$/);
     if (!match) {
       continue;
     }
