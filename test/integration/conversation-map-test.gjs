@@ -16,7 +16,10 @@ import DiscourseURL from "discourse/lib/url";
 import Topic from "discourse/models/topic";
 import { setupRenderingTest } from "discourse/tests/helpers/component-test";
 import ConversationMap from "../../discourse/components/conversation-map.gjs";
-import { mapSession, resetMapSessionForUrl } from "../../discourse/lib/conversation-map-session.js";
+import {
+  mapSession,
+  resetMapSessionForUrl,
+} from "../../discourse/lib/conversation-map-session.js";
 
 class StreamFixture {
   @tracked streamFilters = {};
@@ -110,11 +113,11 @@ module("Integration | Component | ConversationMap", function (hooks) {
         await render(
           <template>
             <div class="timeline-container">
-              <div class="timeline-scrollarea"><div class="timeline-scroller">Native timeline</div></div>
+              <div class="timeline-scrollarea"><div
+                  class="timeline-scroller"
+                >Native timeline</div></div>
               <button class="other-control" type="button">Other</button>
-              <ConversationMap
-                @topic={{topic}}
-              />
+              <ConversationMap @topic={{topic}} />
             </div>
           </template>
         );
@@ -165,10 +168,10 @@ module("Integration | Component | ConversationMap", function (hooks) {
         await render(
           <template>
             <div class="timeline-container">
-              <div class="timeline-scrollarea"><div class="timeline-scroller">Native timeline</div></div>
-              <ConversationMap
-                @topic={{current.value}}
-              />
+              <div class="timeline-scrollarea"><div
+                  class="timeline-scroller"
+                >Native timeline</div></div>
+              <ConversationMap @topic={{current.value}} />
             </div>
           </template>
         );
