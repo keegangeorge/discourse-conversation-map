@@ -816,8 +816,17 @@ export default class ConversationMap extends Component {
     if (!this.args.mobile) {
       this.close();
     }
+    const returnControl = !this.args.mobile
+      ? this.target?.querySelector(".conversation-map-return")
+      : null;
     this.#scrubQueue.request(
-      { number: anchor.number, offset: anchor.offset, returnAnchor: anchor },
+      {
+        number: anchor.number,
+        offset: anchor.offset,
+        returnAnchor: anchor,
+        focusedReturn:
+          returnControl === document.activeElement ? returnControl : null,
+      },
       true
     );
   }
@@ -908,6 +917,14 @@ export default class ConversationMap extends Component {
         request.returnAnchor === this.returning &&
         request.returnAnchor
       ) {
+        if (
+          request.focusedReturn?.isConnected &&
+          document.activeElement === request.focusedReturn
+        ) {
+          this.target
+            ?.querySelector(".conversation-map__track")
+            ?.focus({ preventScroll: true });
+        }
         mapSession(this.args.topic.id).anchor = null;
         this.returning = null;
       }

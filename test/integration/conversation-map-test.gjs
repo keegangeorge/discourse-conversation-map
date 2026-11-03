@@ -13,8 +13,10 @@ import {
 import { module, test } from "qunit";
 import sinon from "sinon";
 import DiscourseURL from "discourse/lib/url";
+import Topic from "discourse/models/topic";
 import { setupRenderingTest } from "discourse/tests/helpers/component-test";
 import ConversationMap from "../../discourse/components/conversation-map.gjs";
+import { mapSession, resetMapSessionForUrl } from "../../discourse/lib/conversation-map-session.js";
 
 class StreamFixture {
   @tracked streamFilters = {};
@@ -26,7 +28,7 @@ class StreamFixture {
   ];
 }
 
-function topic() {
+function makeTopic() {
   return {
     id: 123,
     current_post_number: 1,
@@ -55,7 +57,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
   });
 
   test("the vertical slider exposes its preview relationship and closes accessibly", async function (assert) {
-    const model = topic();
+    const model = makeTopic();
     await render(
       <template>
         <div class="timeline-container">
@@ -92,8 +94,127 @@ module("Integration | Component | ConversationMap", function (hooks) {
       .isFocused("focus returns to the surviving track");
   });
 
+  test("desktop Return restores focus only when it owns focus", async function (assert) {
+    const topic = makeTopic();
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    try {
+      for (const mode of ["owned", "unowned", "moved"]) {
+        const ownsFocus = mode !== "unowned";
+        jump.resetBehavior();
+        if (mode === "moved") {
+          jump.callsFake(() => find(".other-control").focus());
+        }
+        resetMapSessionForUrl("/latest");
+        mapSession(topic.id).anchor = { number: 1 };
+        await render(
+          <template>
+            <div class="timeline-container">
+              <div class="timeline-scrollarea"><div class="timeline-scroller">Native timeline</div></div>
+              <button class="other-control" type="button">Other</button>
+              <ConversationMap
+                @topic={{topic}}
+              />
+            </div>
+          </template>
+        );
+        await waitFor(".conversation-map__track");
+        await waitFor(".conversation-map-return");
+        const focused = ownsFocus
+          ? ".conversation-map-return"
+          : ".other-control";
+        find(focused).focus();
+        // The unowned case does not focus the button; the moved case shifts
+        // focus in the navigation stub before asynchronous completion.
+        find(".conversation-map-return").click();
+        await waitFor(".conversation-map-return", { count: 0 });
+        if (mode === "owned") {
+          await waitUntil(
+            () => find(".conversation-map__track") === document.activeElement
+          );
+        } else {
+          await new Promise(requestAnimationFrame);
+        }
+        assert
+          .dom(mode === "owned" ? ".conversation-map__track" : ".other-control")
+          .isFocused();
+      }
+    } finally {
+      jump.restore();
+      url.restore();
+    }
+  });
+
+  test("failed or cancelled Return cannot restore focus in another topic", async function (assert) {
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    const transform = sinon.stub(Topic, "applyTransformations");
+    try {
+      for (const outcome of ["failure", "cancelled"]) {
+        resetMapSessionForUrl("/latest");
+        jump.resetHistory();
+        const current = tracked(makeTopic());
+        mapSession(current.value.id).anchor = { number: 1 };
+        let resolve, reject;
+        transform.returns(
+          new Promise((yes, no) => {
+            resolve = yes;
+            reject = no;
+          })
+        );
+        await render(
+          <template>
+            <div class="timeline-container">
+              <div class="timeline-scrollarea"><div class="timeline-scroller">Native timeline</div></div>
+              <ConversationMap
+                @topic={{current.value}}
+              />
+            </div>
+          </template>
+        );
+        await waitFor(".conversation-map__track");
+        await waitFor(".conversation-map-return");
+        const button = find(".conversation-map-return");
+        button.focus();
+        button.click();
+        await waitUntil(() => jump.calledOnce);
+        if (outcome === "failure") {
+          reject(new Error("Synthetic navigation failure"));
+          await waitFor(".conversation-map-return:not([disabled])");
+          assert
+            .dom(".conversation-map-return")
+            .exists("failed Return retains its anchor");
+        }
+        button.blur();
+        assert.strictEqual(
+          document.activeElement,
+          document.body,
+          "focus is unowned before switching topics"
+        );
+        const next = makeTopic();
+        next.id = 124;
+        current.value = next;
+        await waitFor(".conversation-map-return", { count: 0 });
+        if (outcome === "cancelled") {
+          resolve();
+        }
+        await settled();
+        await new Promise(requestAnimationFrame);
+        assert.strictEqual(
+          document.activeElement,
+          document.body,
+          "the old request cannot focus the new topic's track"
+        );
+      }
+    } finally {
+      jump.restore();
+      url.restore();
+      transform.restore();
+    }
+  });
+
   test("desktop landmarks are direct navigation controls", async function (assert) {
-    const model = topic();
+    const model = makeTopic();
     model.bookmarks = [
       { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },
     ];
@@ -148,7 +269,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
   });
 
   test("Escape from a direct landmark closes the map without taking slider keys", async function (assert) {
-    const model = topic();
+    const model = makeTopic();
     model.bookmarks = [
       { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },
     ];
@@ -190,7 +311,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
   });
 
   test("landmark focus survives a refreshed post snapshot", async function (assert) {
-    const model = topic();
+    const model = makeTopic();
     model.bookmarks = [
       { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },
     ];
@@ -229,7 +350,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
   });
 
   test("pointer exit does not remove a keyboard-focused preview", async function (assert) {
-    const model = topic();
+    const model = makeTopic();
     await render(
       <template>
         <div class="timeline-container">
@@ -267,7 +388,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
   });
 
   test("filtered topics deactivate the map and restore native navigation", async function (assert) {
-    const model = topic();
+    const model = makeTopic();
     await render(
       <template>
         <div class="timeline-container">
@@ -296,7 +417,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
   });
 
   test("non-consecutive post numbers retain ordinal keyboard positions", async function (assert) {
-    const model = topic();
+    const model = makeTopic();
     await render(
       <template>
         <div class="timeline-container">
@@ -361,7 +482,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
     }
   });
   test("unchanged loaded posts do not churn when the stream exceeds the preview cache", async function (assert) {
-    const model = topic();
+    const model = makeTopic();
     model.postStream.posts = Array.from({ length: 161 }, (_, index) => ({
       id: 1000 + index,
       post_number: index + 1,
