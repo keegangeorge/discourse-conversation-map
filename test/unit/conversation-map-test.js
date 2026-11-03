@@ -320,22 +320,49 @@ module("Unit | Lib | conversation-map", function () {
   test("srcset fallback preserves configured CDN trust boundaries", function (assert) {
     const origin = "https://forum.example";
     const bases = configuredUploadBases(
-      { s3BaseUrl: "https://bucket.example/shared", s3Cdn: "https://cdn.example/site" },
+      {
+        s3BaseUrl: "https://bucket.example/shared",
+        s3Cdn: "https://cdn.example/site",
+      },
       origin
     );
     for (const [srcset, src, expected] of [
-      ["https://cdn.example/other/a.png 320w, https://cdn.example/site/b.png 640w", "https://tracker.example/c.png", "https://cdn.example/site/b.png"],
-      ["https://bucket.example/shared/a.png 320w", "https://cdn.example/site/c.png", "https://cdn.example/site/c.png"],
-      ["https://cdn.example/other/a.png 320w", "/local.png", "https://forum.example/local.png"],
-      ["https://cdn.example/site/a.png 320w, /local.png 640w", "/src.png", "https://cdn.example/site/a.png"],
-      ["https://cdn.example/other/a.png 320w", "https://bucket.example/shared/c.png", null],
+      [
+        "https://cdn.example/other/a.png 320w, https://cdn.example/site/b.png 640w",
+        "https://tracker.example/c.png",
+        "https://cdn.example/site/b.png",
+      ],
+      [
+        "https://bucket.example/shared/a.png 320w",
+        "https://cdn.example/site/c.png",
+        "https://cdn.example/site/c.png",
+      ],
+      [
+        "https://cdn.example/other/a.png 320w",
+        "/local.png",
+        "https://forum.example/local.png",
+      ],
+      [
+        "https://cdn.example/site/a.png 320w, /local.png 640w",
+        "/src.png",
+        "https://cdn.example/site/a.png",
+      ],
+      [
+        "https://cdn.example/other/a.png 320w",
+        "https://bucket.example/shared/c.png",
+        null,
+      ],
     ]) {
       const result = inspectPost(
         { id: 1, cooked: `<img src="${src}" srcset="${srcset}">` },
         origin,
         bases
       );
-      assert.deepEqual(result.images.map((image) => image.url), expected ? [expected] : [], srcset);
+      assert.deepEqual(
+        result.images.map((image) => image.url),
+        expected ? [expected] : [],
+        srcset
+      );
     }
   });
 

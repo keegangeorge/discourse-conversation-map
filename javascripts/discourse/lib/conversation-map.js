@@ -223,8 +223,8 @@ export function inspectPost(post, origin, uploadBases = []) {
         if (!images.some((image) => image.url === url.href)) {
           images.push({ url: url.href, alt: img.getAttribute("alt") || "" });
         }
-          // Each img contributes at most one thumbnail, even if it is a duplicate.
-          break;
+        // Each img contributes at most one thumbnail, even if it is a duplicate.
+        break;
       }
     }
   }
