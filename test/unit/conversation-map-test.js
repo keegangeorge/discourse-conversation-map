@@ -385,6 +385,11 @@ module("Unit | Lib | conversation-map", function () {
       },
       { cdn: "https://cdn.example/", baseUri: "/forum" },
       { cdn: "https://cdn.example/uploads/" },
+      ...["//", "/uploads//"].flatMap((path) => [
+        { s3BaseUrl: "https://bucket.example", s3Cdn: `https://cdn.example${path}` },
+        { cdn: `https://cdn.example${path}` },
+      ]),
+      { cdn: "https://cdn.example/tenant", baseUri: "/forum//" },
     ]) {
       assert.deepEqual(
         configuredUploadBases(setup, origin),

@@ -58,7 +58,8 @@ export function configuredUploadBases(setup, origin) {
         url.username ||
         url.password ||
         url.search ||
-        url.hash
+        url.hash ||
+        url.pathname.includes("//")
       ) {
         return null;
       }
@@ -86,6 +87,7 @@ export function configuredUploadBases(setup, origin) {
     hasNamespace(cdn) &&
     typeof baseUri === "string" &&
     !hasRawControls(baseUri) &&
+    !baseUri.includes("//") &&
     (baseUri === "" || /^\/(?!\/)[^?#\\]*$/.test(baseUri)) &&
     !/%|(?:^|\/)\.{1,2}(?:\/|$)/.test(baseUri)
   ) {
@@ -155,7 +157,7 @@ export function inspectPost(post, origin, uploadBases = []) {
     )
     .forEach((el) => el.remove());
   const images = [];
-  if (!post.hidden && !post.deleted_at) {
+  {
     for (const img of doc.querySelectorAll("img:not(.emoji):not(.avatar)")) {
       if (img.width && img.width < 100) {
         continue;
@@ -188,10 +190,7 @@ export function inspectPost(post, origin, uploadBases = []) {
   doc
     .querySelectorAll("img, video, audio, pre, .meta")
     .forEach((el) => el.remove());
-  const text =
-    post.hidden || post.deleted_at
-      ? ""
-      : doc.textContent.replace(/\s+/g, " ").trim().slice(0, 260);
+  const text = doc.textContent.replace(/\s+/g, " ").trim().slice(0, 260);
   return {
     id: post.id,
     number: post.post_number,
