@@ -926,20 +926,14 @@ export default class ConversationMap extends Component {
           ?.querySelector("#topic-progress");
         mapSession(this.args.topic.id).anchor = null;
         this.returning = null;
-        if (progress) {
-          requestAnimationFrame(() => {
-            // This request must still own the navigation, topic and focus.
-            // Removing its focused button blurs to body; another focused
-            // control means the reader moved on while the request was pending.
-            if (
-              valid() &&
-              progress.isConnected &&
-              (document.activeElement === request.returnControl ||
-                document.activeElement === document.body)
-            ) {
-              progress.focus({ preventScroll: true });
-            }
-          });
+        // Move focus before removing the compact button, and only for the
+        // successful request that still owns this anchor and focus.
+        if (
+          progress?.isConnected &&
+          (document.activeElement === request.returnControl ||
+            document.activeElement === document.body)
+        ) {
+          progress.focus({ preventScroll: true });
         }
       }
       if (success && valid() && this.args.mobile) {
