@@ -181,6 +181,7 @@ export default class ConversationMap extends Component {
   #captureElement;
   #pointerId;
   #cache = new Map();
+  #uploadBases;
   #loadedSnapshots = new WeakMap();
   #cooked = new Map();
   #topicId;
@@ -972,10 +973,10 @@ export default class ConversationMap extends Component {
         inspectPost(
           post,
           window.location.origin,
-          configuredUploadBases(
+          (this.#uploadBases ??= configuredUploadBases(
             document.getElementById("data-discourse-setup")?.dataset,
             window.location.origin
-          )
+          ))
         )
       );
       this.#cooked.set(post.id, post.cooked);

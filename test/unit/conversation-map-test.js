@@ -193,8 +193,8 @@ module("Unit | Lib | conversation-map", function () {
     );
     assert.strictEqual(
       image("https://bucket.example/site/original/a.jpg").length,
-      1,
-      "configured upload storage is allowed"
+      0,
+      "raw upload storage has no proven tenant scope"
     );
     for (const url of [
       "https://global.discourse-cdn.com/other/original/a.jpg",
@@ -283,7 +283,7 @@ module("Unit | Lib | conversation-map", function () {
       );
       assert.deepEqual(
         bases,
-        ["https://bucket.example/site"],
+        [],
         "invalid CDN base ignored before normalization"
       );
       assert.deepEqual(
@@ -335,7 +335,7 @@ module("Unit | Lib | conversation-map", function () {
         { cdn: "//cdn.example/tenant", baseUri: "/forum" },
         origin
       ),
-      ["https://cdn.example/tenant/forum/uploads/"],
+      [{ origin: "https://cdn.example", prefix: "/tenant/forum/uploads" }],
       "static CDN is restricted to the forum upload subtree"
     );
     assert.deepEqual(
@@ -367,6 +367,15 @@ module("Unit | Lib | conversation-map", function () {
     }
     assert.strictEqual(images(shared, "https://cdn.example/this-site/original/a.jpg").length, 1,
       "explicit scoped S3 CDN remains usable with a shared bucket");
+    for (const setup of [
+      { s3BaseUrl: "https://bucket.example/shared" },
+      { s3BaseUrl: "https://bucket.example", s3Cdn: "https://cdn.example/" },
+      { s3BaseUrl: "https://bucket.example", s3Cdn: "https://cdn.example/uploads/" },
+      { cdn: "https://cdn.example/", baseUri: "/forum" },
+      { cdn: "https://cdn.example/uploads/" },
+    ]) {
+      assert.deepEqual(configuredUploadBases(setup, origin), [], "unknown tenant scope is skipped");
+    }
     for (const suffix of ["?", "#"]) {
       for (const key of ["s3BaseUrl", "s3Cdn", "cdn"]) {
         const setup = { [key]: `https://shared.example/site/..${suffix}` };

@@ -47,7 +47,7 @@ export function configuredUploadBases(setup, origin) {
       hasRawControls(value) ||
       /%(?:2e|2f|5c|25)/i.test(value) ||
       /(?:^|\/)\.{1,2}(?:\/|$)/.test(value) ||
-      value.includes("\\")
+      /[?#\\]/.test(value)
     ) {
       return null;
     }
@@ -58,9 +58,7 @@ export function configuredUploadBases(setup, origin) {
         url.username ||
         url.password ||
         url.search ||
-        url.hash ||
-        /%(?:2e|2f|5c|25)/i.test(url.pathname) ||
-        value.includes("\\")
+        url.hash
       ) {
         return null;
       }
@@ -70,24 +68,32 @@ export function configuredUploadBases(setup, origin) {
     }
   };
   const bases = [];
+  // Bootstrap has no database identifier. A raw storage URL may be a shared
+  // bucket, so never authorize it. Only explicit CDN namespaces are eligible;
+  // root CDN paths (including a shared /uploads root) cannot identify a site.
+  const hasNamespace = (url) =>
+    url && url.pathname.replace(/\/$/, "") !== "" &&
+    url.pathname.replace(/\/$/, "") !== "/uploads";
+  const add = (url) => bases.push({
+    origin: url.origin,
+    prefix: url.pathname.replace(/\/$/, ""),
+  });
   const cdn = parse(setup?.cdn);
   const baseUri = setup?.baseUri ?? "";
   if (
-    cdn &&
+    hasNamespace(cdn) &&
     typeof baseUri === "string" &&
     !hasRawControls(baseUri) &&
     (baseUri === "" || /^\/(?!\/)[^?#\\]*$/.test(baseUri)) &&
     !/%|(?:^|\/)\.{1,2}(?:\/|$)/.test(baseUri)
   ) {
     cdn.pathname = `${cdn.pathname.replace(/\/$/, "")}${baseUri.replace(/\/$/, "")}/uploads/`;
-    bases.push(cdn.href);
+    add(cdn);
   }
-  const s3 = parse(setup?.s3BaseUrl);
-  if (s3) {
-    bases.push(s3.href);
+  if (parse(setup?.s3BaseUrl)) {
     const s3Cdn = parse(setup?.s3Cdn);
-    if (s3Cdn) {
-      bases.push(s3Cdn.href);
+    if (hasNamespace(s3Cdn)) {
+      add(s3Cdn);
     }
   }
   return bases;
@@ -107,11 +113,9 @@ function trustedImageURL(source, origin, uploadBases) {
     if (/%(?:2e|2f|5c|25)/i.test(url.pathname) || source.includes("\\")) {
       return null;
     }
-    for (const base of uploadBases) {
-      const allowed = new URL(base);
-      const prefix = allowed.pathname.replace(/\/$/, "");
+    for (const { origin: allowedOrigin, prefix } of uploadBases) {
       if (
-        url.origin === allowed.origin &&
+        url.origin === allowedOrigin &&
         (url.pathname === prefix || url.pathname.startsWith(`${prefix}/`))
       ) {
         return url;
