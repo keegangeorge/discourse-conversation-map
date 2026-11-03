@@ -92,7 +92,10 @@ export function inspectPost(post, origin) {
       if (img.width && img.width < 100) {
         continue;
       }
-      const candidates = srcsetCandidates(img.getAttribute("srcset") || "", img.width);
+      const candidates = srcsetCandidates(
+        img.getAttribute("srcset") || "",
+        img.width
+      );
       const preferred =
         candidates.find((candidate) => candidate.width >= 320) ||
         candidates.at(-1);
