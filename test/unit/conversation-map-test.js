@@ -385,7 +385,7 @@ module("Unit | Lib | conversation-map", function () {
       },
       { cdn: "https://cdn.example/", baseUri: "/forum" },
       { cdn: "https://cdn.example/uploads/" },
-      ...["//", "/uploads//"].flatMap((path) => [
+      ...["//", "/uploads//", "/%75ploads/", "/upl%6fads/"].flatMap((path) => [
         {
           s3BaseUrl: "https://bucket.example",
           s3Cdn: `https://cdn.example${path}`,

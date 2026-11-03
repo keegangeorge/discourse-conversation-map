@@ -45,7 +45,7 @@ export function configuredUploadBases(setup, origin) {
       typeof value !== "string" ||
       !/^(https?:)?\/\//i.test(value) ||
       hasRawControls(value) ||
-      /%(?:2e|2f|5c|25)/i.test(value) ||
+      value.includes("%") ||
       /(?:^|\/)\.{1,2}(?:\/|$)/.test(value) ||
       /[?#\\]/.test(value)
     ) {
