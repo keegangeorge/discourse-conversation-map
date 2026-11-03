@@ -808,7 +808,7 @@ export default class ConversationMap extends Component {
   }
 
   @action
-  returnToReading() {
+  returnToReading(event) {
     const anchor = this.returning;
     if (!anchor) {
       return;
@@ -817,7 +817,7 @@ export default class ConversationMap extends Component {
       this.close();
     }
     const returnControl = !this.args.mobile
-      ? this.target?.querySelector(".conversation-map-return")
+      ? event?.currentTarget
       : null;
     this.#scrubQueue.request(
       {
