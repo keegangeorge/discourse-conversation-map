@@ -262,6 +262,28 @@ module("Unit | Lib | conversation-map", function () {
         `invalid bootstrap value ignored: ${s3BaseUrl}`
       );
     }
+    for (const invalid of [
+      "https://shared.example/themecreator/../",
+      "https://shared.example/themecreator/./",
+      "https://shared.example/themecreator/%2e%2e/",
+      "https://shared.example/themecreator/%2E./",
+    ]) {
+      assert.deepEqual(
+        configuredUploadBases({ s3BaseUrl: invalid }, origin),
+        [],
+        "raw traversal cannot broaden the storage base"
+      );
+      const bases = configuredUploadBases(
+        { s3BaseUrl: "https://bucket.example/site", s3Cdn: invalid },
+        origin
+      );
+      assert.deepEqual(bases, ["https://bucket.example/site"], "invalid CDN base ignored before normalization");
+      assert.deepEqual(
+        inspectPost({ id: 1, cooked: '<img src="https://shared.example/other-tenant/a.jpg">' }, origin, bases).images,
+        [],
+        "malformed CDN configuration never permits sibling tenants"
+      );
+    }
     assert.deepEqual(
       configuredUploadBases(
         { cdn: "//cdn.example/tenant", baseUri: "/forum" },
