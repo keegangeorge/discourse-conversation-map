@@ -183,7 +183,8 @@ module("Integration | Component | ConversationMap", function (hooks) {
         await waitUntil(() => jump.calledOnce);
         if (outcome === "failure") {
           reject(new Error("Synthetic navigation failure"));
-          await waitFor(".conversation-map-return:not([disabled])");
+          await waitFor("p.conversation-map__status");
+          assert.dom(".conversation-map-return").isFocused("failed navigation does not transfer focus");
           assert
             .dom(".conversation-map-return")
             .exists("failed Return retains its anchor");
