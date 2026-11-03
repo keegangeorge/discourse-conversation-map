@@ -31,7 +31,87 @@ export function sampleIds(stream, limit, knownIds = new Set()) {
   return [...ids];
 }
 
-export function inspectPost(post, origin) {
+// These bases come only from Discourse's server-rendered bootstrap, never from
+// cooked post markup. Static CDN uploads also retain the site's base URI.
+export function configuredUploadBases(setup, origin) {
+  const parse = (value) => {
+    if (
+      typeof value !== "string" ||
+      !/^(https?:)?\/\//i.test(value)
+    ) {
+      return null;
+    }
+    try {
+      const url = new URL(value, origin);
+      if (
+        !/^https?:$/.test(url.protocol) ||
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        /%(?:2e|2f|5c|25)/i.test(url.pathname) ||
+        value.includes("\\")
+      ) {
+        return null;
+      }
+      return url;
+    } catch {
+      return null;
+    }
+  };
+  const bases = [];
+  const cdn = parse(setup?.cdn);
+  const baseUri = setup?.baseUri || "";
+  if (
+    cdn &&
+    (baseUri === "" || /^\/(?!\/)[^?#\\]*$/.test(baseUri)) &&
+    !/%|(?:^|\/)\.{1,2}(?:\/|$)/.test(baseUri)
+  ) {
+    cdn.pathname = `${cdn.pathname.replace(/\/$/, "")}${baseUri.replace(/\/$/, "")}/uploads/`;
+    bases.push(cdn.href);
+  }
+  const s3 = parse(setup?.s3BaseUrl);
+  if (s3) {
+    bases.push(s3.href);
+    const s3Cdn = parse(setup?.s3Cdn);
+    if (s3Cdn) {
+      bases.push(s3Cdn.href);
+    }
+  }
+  return bases;
+}
+
+function trustedImageURL(source, origin, uploadBases) {
+  try {
+    const url = new URL(source, origin);
+    if (!/^https?:$/.test(url.protocol) || url.username || url.password) {
+      return null;
+    }
+    if (url.origin === origin) {
+      return url;
+    }
+    // Reject ambiguous encoded separators/traversal before matching a tenant
+    // namespace. The same parsed origin AND a path boundary must match.
+    if (/%(?:2e|2f|5c|25)/i.test(url.pathname) || source.includes("\\")) {
+      return null;
+    }
+    for (const base of uploadBases) {
+      const allowed = new URL(base);
+      const prefix = allowed.pathname.replace(/\/$/, "");
+      if (
+        url.origin === allowed.origin &&
+        (url.pathname === prefix || url.pathname.startsWith(`${prefix}/`))
+      ) {
+        return url;
+      }
+    }
+  } catch {
+    // Malformed URLs are not previewable.
+  }
+  return null;
+}
+
+export function inspectPost(post, origin, uploadBases = []) {
   const neutral = {
     id: post.id,
     number: post.post_number,
@@ -79,18 +159,9 @@ export function inspectPost(post, origin) {
       if (!source) {
         continue;
       }
-      try {
-        const url = new URL(source, origin);
-        // Reuse local thumbnails only. Don't load third-party tracking images on hover.
-        if (
-          url.origin === origin &&
-          /^https?:$/.test(url.protocol) &&
-          !images.some((image) => image.url === url.href)
-        ) {
-          images.push({ url: url.href, alt: img.getAttribute("alt") || "" });
-        }
-      } catch {
-        // Malformed image URLs are not previewable.
+      const url = trustedImageURL(source, origin, uploadBases);
+      if (url && !images.some((image) => image.url === url.href)) {
+        images.push({ url: url.href, alt: img.getAttribute("alt") || "" });
       }
     }
   }

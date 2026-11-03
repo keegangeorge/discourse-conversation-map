@@ -15,6 +15,7 @@ import dIcon from "discourse/ui-kit/helpers/d-icon";
 import { i18n } from "discourse-i18n";
 import {
   clamp,
+  configuredUploadBases,
   indexForPointer,
   inspectPost,
   percentForIndex,
@@ -964,7 +965,17 @@ export default class ConversationMap extends Component {
       cachedPost?.date !== post.created_at ||
       cachedPost?.actionCode !== post.action_code
     ) {
-      this.#cache.set(post.id, inspectPost(post, window.location.origin));
+      this.#cache.set(
+        post.id,
+        inspectPost(
+          post,
+          window.location.origin,
+          configuredUploadBases(
+            document.getElementById("data-discourse-setup")?.dataset,
+            window.location.origin
+          )
+        )
+      );
       this.#cooked.set(post.id, post.cooked);
       if (this.#cache.size > 160) {
         const oldest = this.#cache.keys().next().value;

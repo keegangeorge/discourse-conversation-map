@@ -84,7 +84,7 @@ Reduced-motion preferences are respected.
 - Preview metadata is fetched from Discourse's existing permission-checked endpoints. Requests are batched, deduplicated per post, and limited to one preview request at a time. Foreground previews take priority over queued background samples, and up to two nearby posts are prefetched after a selected preview resolves. The in-memory metadata cache holds at most 160 posts, with a separate bounded mapping of up to 512 post IDs to post numbers.
 - Preview excerpts and bodies are not persisted in browser storage. A topic-scoped reading anchor survives timeline remounts and is cleared when leaving the topic.
 - Hidden/deleted posts, spoilers, collapsed details, oneboxes, emoji, and avatars do not become preview content. Cooked HTML is inspected in an inert template; only plain text and validated image URLs are rendered.
-- Only same-origin media is previewed. External and CDN-hosted images are deliberately omitted in this version.
+- Same-origin media and the site's configured upload storage/CDN are previewed. CDN URLs must match both the server-rendered bootstrap origin and its upload/tenant path boundary; arbitrary external images remain omitted. Missing or invalid upload configuration keeps same-origin-only behavior.
 - A smaller responsive image is preferred when available. Otherwise the cooked image URL is reused, so individual image downloads can still be large. Video/audio receives a marker, never autoplay.
 - Navigation responses are checked before changing the live topic stream. Clicks, keyboard activation, scrubbing, and Return share the same navigation queue.
 
