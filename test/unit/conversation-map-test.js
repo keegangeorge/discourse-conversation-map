@@ -348,6 +348,50 @@ module("Unit | Lib | conversation-map", function () {
     );
   });
 
+  test("shared storage and raw delimiters cannot broaden upload trust", function (assert) {
+    const origin = "https://forum.example";
+    const images = (setup, url) => inspectPost(
+      { id: 1, cooked: `<img src="${url}">` }, origin,
+      configuredUploadBases(setup, origin)
+    ).images;
+    const shared = {
+      s3BaseUrl: "https://bucket.example",
+      s3Cdn: "https://cdn.example/this-site",
+      cdn: "https://static.example",
+    };
+    for (const url of [
+      "https://bucket.example/uploads/other-site/original/a.jpg",
+      "https://static.example/uploads/other-site/original/a.jpg",
+    ]) {
+      assert.deepEqual(images(shared, url), [], "unscoped shared storage is not trusted");
+    }
+    assert.strictEqual(images(shared, "https://cdn.example/this-site/original/a.jpg").length, 1,
+      "explicit scoped S3 CDN remains usable with a shared bucket");
+    for (const suffix of ["?", "#"]) {
+      for (const key of ["s3BaseUrl", "s3Cdn", "cdn"]) {
+        const setup = { [key]: `https://shared.example/site/..${suffix}` };
+        if (key === "s3Cdn") { setup.s3BaseUrl = "https://bucket.example/site"; }
+        assert.deepEqual(images(setup, "https://shared.example/other-site/a.jpg"), [],
+          `raw ${suffix} must not normalize ${key} into root permission`);
+      }
+    }
+  });
+
+  test("static CDN previews only the configured upload subtree", function (assert) {
+    const origin = "https://forum.example";
+    const bases = configuredUploadBases({ cdn: "https://cdn.example/tenant", baseUri: "/forum" }, origin);
+    const images = (url) => inspectPost({ id: 1, cooked: `<img src="${url}">` }, origin, bases).images;
+    assert.strictEqual(images("https://cdn.example/tenant/forum/uploads/default/a.jpg").length, 1,
+      "configured static CDN image is actually previewed");
+    for (const url of [
+      "https://cdn.example/tenant/forum/assets/a.jpg",
+      "https://cdn.example/tenant-other/forum/uploads/default/a.jpg",
+      "https://cdn.example/tenant/forum/uploads-other/a.jpg",
+    ]) {
+      assert.deepEqual(images(url), [], "only the configured upload boundary matches");
+    }
+  });
+
   test("responsive media prefers a small local image candidate", function (assert) {
     const post = inspectPost(
       {
