@@ -445,7 +445,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
       .includesText("#9", "the preview still identifies the real post number");
   });
   test("a topic change cancels old measurements without disabling new scroll updates", async function (assert) {
-    const model = tracked(topic());
+    const model = tracked(makeTopic());
     await render(
       <template>
         <div class="timeline-container"><div
@@ -463,7 +463,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
         postIndex: 3,
         percent: 1,
       });
-      model.value = { ...topic(), id: 124 };
+      model.value = { ...makeTopic(), id: 124 };
       await settled();
       clock.tick(20);
       await settled();
