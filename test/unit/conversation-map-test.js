@@ -267,7 +267,10 @@ module("Unit | Lib | conversation-map", function () {
       "https://shared.example/themecreator/./",
       "https://shared.example/themecreator/%2e%2e/",
       "https://shared.example/themecreator/%2E./",
-      ...[9, 10, 13, 0, 32, 127].map((code) => `https://shared.example/themecreator/.${String.fromCharCode(code)}./`),
+      ...[9, 10, 13, 0, 32, 127].map(
+        (code) =>
+          `https://shared.example/themecreator/.${String.fromCharCode(code)}./`
+      ),
     ]) {
       assert.deepEqual(
         configuredUploadBases({ s3BaseUrl: invalid }, origin),
