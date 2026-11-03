@@ -166,6 +166,20 @@ module("Unit | Lib | conversation-map", function () {
     }
   });
 
+  test("commas within unsafe srcset URLs never become local candidates", function (assert) {
+    const origin = "https://forum.example";
+    for (const srcset of [
+      "data:image/png;base64,AAAA 320w",
+      "data:image/svg+xml,local.png 320w",
+      "https://remote.example/a,b.png 320w",
+    ]) {
+      assert.deepEqual(inspectPost({ id: 1, cooked: `<img src="javascript:alert(1)" srcset="${srcset}">` }, origin).images, [], srcset);
+      assert.deepEqual(inspectPost({ id: 1, cooked: `<img src="/safe.png" srcset="${srcset}">` }, origin).images.map((image) => image.url), [origin + "/safe.png"], "only the explicit safe fallback is used");
+    }
+    const post = inspectPost({ id: 1, cooked: '<img src="/src.png" srcset="https://remote.example/a.png 320w,/local.png 640w">' }, origin);
+    assert.strictEqual(post.images[0].url, origin + "/local.png", "separator whitespace is optional");
+  });
+
   test("fallback does not expose concealed media or add extra thumbnails for duplicate images", function (assert) {
     const origin = "https://forum.example";
     const img =
