@@ -50,20 +50,20 @@ No backend plugin is required. Discourse Solved and Discourse Assign are optiona
 
 ## Controls
 
-| Action                                 | Result                                                          |
-| -------------------------------------- | --------------------------------------------------------------- |
-| Hover the timeline or post count       | Expand the map                                                  |
-| Move along the map                     | Preview a position without navigating                           |
-| Hover or focus a landmark              | Preview that post                                               |
-| Click the map or a landmark            | Navigate directly                                               |
-| Press and drag                         | Scrub through the topic; release settles on the latest position |
-| Return to #…                           | Restore the original reading anchor                             |
-| Enter or Space on the collapsed slider | Open the map                                                    |
-| Arrow keys                             | Preview the previous or next position                           |
-| Page Up / Page Down                    | Move ten positions                                              |
-| Home / End                             | Preview the first or last position                              |
-| Enter on an open slider                | Navigate to the previewed post                                  |
-| Escape                                 | Close the map                                                   |
+| Action | Result |
+| --- | --- |
+| Hover the timeline or post count | Expand the map |
+| Move along the map | Preview a position without navigating |
+| Hover or focus a landmark | Preview that post |
+| Click the map or a landmark | Navigate directly |
+| Press and drag | Scrub through the topic; release settles on the latest position |
+| Return to #… | Restore the original reading anchor |
+| Enter or Space on the collapsed slider | Open the map |
+| Arrow keys | Preview the previous or next position |
+| Page Up / Page Down | Move ten positions |
+| Home / End | Preview the first or last position |
+| Enter on an open slider | Navigate to the previewed post |
+| Escape | Close the map |
 
 On mobile and narrow layouts, tap the existing post-count control to open the map sheet. Dragging and landmark taps only preview. **Open post** navigates and closes the sheet; **Return to #…** restores the original reading position. The sheet supports keyboard navigation, Escape, focus restoration, safe-area spacing, and landscape layouts.
 
@@ -71,10 +71,10 @@ Reduced-motion preferences are respected.
 
 ## Settings
 
-| Setting         | Default | Description                                                                                                                                         |
-| --------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `minimum_posts` | `12`    | Keep the native timeline on shorter topics.                                                                                                         |
-| `sample_posts`  | `12`    | Maximum evenly spaced posts inspected when opening the map. Set to `0` to disable this sampling. Up to eight known landmarks may also be inspected. |
+| Setting | Default | Description |
+| --- | --- | --- |
+| `minimum_posts` | `12` | Keep the native timeline on shorter topics. |
+| `sample_posts` | `12` | Maximum evenly spaced posts inspected when opening the map. Set to `0` to disable this sampling. Up to eight known landmarks may also be inspected. |
 
 ## Scope and privacy
 
