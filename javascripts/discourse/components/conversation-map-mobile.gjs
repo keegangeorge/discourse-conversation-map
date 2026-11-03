@@ -51,7 +51,14 @@ export default class ConversationMapMobile extends Component {
   replaceBackButton = modifier((element) => {
     const navigation = element.closest(".topic-navigation");
     navigation?.classList.add("has-conversation-map-return");
-    return () => navigation?.classList.remove("has-conversation-map-return");
+    return () => {
+      navigation?.classList.remove("has-conversation-map-return");
+      if (document.activeElement === element) {
+        navigation
+          ?.querySelector("#topic-progress")
+          ?.focus({ preventScroll: true });
+      }
+    };
   });
 
   showSheet = modifier((element) => {

@@ -262,6 +262,45 @@ module("Integration | Component | ConversationMapMobile", function (hooks) {
       url.restore();
     }
   });
+  test("compact Return restores focus only when it owns focus", async function (assert) {
+    const topic = new TopicFixture();
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    try {
+      for (const ownsFocus of [true, false]) {
+        resetMapSessionForUrl("/latest");
+        mapSession(topic.id).anchor = { number: 1 };
+        await render(
+          <template>
+            <div class="topic-navigation">
+              <nav id="topic-progress" tabindex="-1">1 / 3</nav>
+              <button class="other-control" type="button">Other</button>
+              <ConversationMap
+                @compact={{true}}
+                @mobile={{true}}
+                @topic={{topic}}
+              />
+            </div>
+          </template>
+        );
+        await waitFor("#topic-progress[tabindex='0']");
+        await waitFor(".conversation-map-mobile-return");
+        const focused = ownsFocus
+          ? ".conversation-map-mobile-return"
+          : ".other-control";
+        find(focused).focus();
+        // Dispatch only the activation; keep the unrelated control focused in
+        // the second case to model focus moving during asynchronous navigation.
+        find(".conversation-map-mobile-return").click();
+        await waitFor(".conversation-map-mobile-return", { count: 0 });
+        assert.dom(ownsFocus ? "#topic-progress" : ".other-control").isFocused();
+      }
+    } finally {
+      jump.restore();
+      url.restore();
+    }
+  });
+
   test("the native progress control opens by keyboard and regains focus on dismissal", async function (assert) {
     const topic = new TopicFixture();
     const active = tracked(false);
