@@ -14,7 +14,7 @@ import ConversationMapSurface from "./conversation-map-surface.gjs";
 export default class ConversationMapMobile extends Component {
   @service appEvents;
 
-  progressControl = modifier((element, [compact]) => {
+  progressControl = modifier((element, [compact, returning]) => {
     if (!compact) {
       return;
     }
@@ -30,6 +30,18 @@ export default class ConversationMapMobile extends Component {
       previousTabIndex = progress.getAttribute("tabindex");
       progress.setAttribute("tabindex", "0");
       progress.addEventListener("keydown", this.openFromKeyboard);
+      if (!returning && this.#returnButton) {
+        const button = this.#returnButton;
+        this.#returnButton = null;
+        // Removal blurs the activated button to body. Do not steal focus if
+        // the reader moved to another control while navigation was pending.
+        if (
+          document.activeElement === button ||
+          document.activeElement === document.body
+        ) {
+          progress.focus({ preventScroll: true });
+        }
+      }
       if (this.#restoreFocus) {
         progress.focus({ preventScroll: true });
         this.#restoreFocus = false;
@@ -51,14 +63,7 @@ export default class ConversationMapMobile extends Component {
   replaceBackButton = modifier((element) => {
     const navigation = element.closest(".topic-navigation");
     navigation?.classList.add("has-conversation-map-return");
-    return () => {
-      navigation?.classList.remove("has-conversation-map-return");
-      if (document.activeElement === element) {
-        navigation
-          ?.querySelector("#topic-progress")
-          ?.focus({ preventScroll: true });
-      }
-    };
+    return () => navigation?.classList.remove("has-conversation-map-return");
   });
 
   showSheet = modifier((element) => {
@@ -78,6 +83,14 @@ export default class ConversationMapMobile extends Component {
   });
 
   #restoreFocus = false;
+  #returnButton = null;
+
+  @action
+  returnFromCompact(event) {
+    this.#returnButton =
+      document.activeElement === event.currentTarget ? event.currentTarget : null;
+    this.args.map.returnToReading();
+  }
 
   @action
   openFromKeyboard(event) {
@@ -110,7 +123,7 @@ export default class ConversationMapMobile extends Component {
   <template>
     <span
       class="conversation-map-mount"
-      {{this.progressControl @compact}}
+      {{this.progressControl @compact @map.returning}}
     ></span>
     {{#if (and @active @map.expanded)}}
       <dialog
@@ -205,7 +218,7 @@ export default class ConversationMapMobile extends Component {
         class="conversation-map-mobile-return btn btn-default"
         disabled={{@map.navigating}}
         type="button"
-        {{on "click" @map.returnToReading}}
+        {{on "click" this.returnFromCompact}}
         {{this.replaceBackButton}}
       >{{dIcon "arrow-rotate-left"}} {{@map.returnLabel}}</button>
     {{/if}}
