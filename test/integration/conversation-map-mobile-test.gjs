@@ -267,7 +267,12 @@ module("Integration | Component | ConversationMapMobile", function (hooks) {
     const jump = sinon.stub(DiscourseURL, "jumpToPost");
     const url = sinon.stub(DiscourseURL, "replaceState");
     try {
-      for (const ownsFocus of [true, false]) {
+      for (const mode of ["owned", "unowned", "moved"]) {
+        const ownsFocus = mode !== "unowned";
+        jump.resetBehavior();
+        if (mode === "moved") {
+          jump.callsFake(() => find(".other-control").focus());
+        }
         resetMapSessionForUrl("/latest");
         mapSession(topic.id).anchor = { number: 1 };
         await render(
@@ -289,12 +294,17 @@ module("Integration | Component | ConversationMapMobile", function (hooks) {
           ? ".conversation-map-mobile-return"
           : ".other-control";
         find(focused).focus();
-        // Dispatch only the activation; keep the unrelated control focused in
-        // the second case to model focus moving during asynchronous navigation.
+        // The unowned case does not focus the button; the moved case shifts
+        // focus in the navigation stub before asynchronous completion.
         find(".conversation-map-mobile-return").click();
         await waitFor(".conversation-map-mobile-return", { count: 0 });
+        if (mode === "owned") {
+          await waitUntil(() => find("#topic-progress") === document.activeElement);
+        } else {
+          await new Promise(requestAnimationFrame);
+        }
         assert
-          .dom(ownsFocus ? "#topic-progress" : ".other-control")
+          .dom(mode === "owned" ? "#topic-progress" : ".other-control")
           .isFocused();
       }
     } finally {
