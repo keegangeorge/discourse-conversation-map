@@ -40,6 +40,7 @@ export function configuredUploadBases(setup, origin) {
     if (
       typeof value !== "string" ||
       !/^(https?:)?\/\//i.test(value) ||
+      Array.from(value).some((char) => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127) ||
       /%(?:2e|2f|5c|25)/i.test(value) ||
       /(?:^|\/)\.{1,2}(?:\/|$)/.test(value) ||
       value.includes("\\")
