@@ -34,9 +34,10 @@ export function sampleIds(stream, limit, knownIds = new Set()) {
 function srcsetCandidates(srcset, width) {
   const candidates = [];
   let remaining = srcset;
+  // HTML srcset boundaries use ASCII whitespace, not JavaScript Unicode whitespace.
   while (remaining) {
-    remaining = remaining.replace(/^[,\s]+/, "");
-    const token = remaining.match(/^\S+/)?.[0];
+    remaining = remaining.replace(/^[,\t\n\f\r ]+/, "");
+    const token = remaining.match(/^[^\t\n\f\r ]+/)?.[0];
     if (!token) {
       break;
     }
@@ -47,7 +48,7 @@ function srcsetCandidates(srcset, width) {
       continue;
     }
     const end = remaining.indexOf(",");
-    const descriptor = (end < 0 ? remaining : remaining.slice(0, end)).trim();
+    const descriptor = (end < 0 ? remaining : remaining.slice(0, end)).replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, "");
     remaining = end < 0 ? "" : remaining.slice(end + 1);
     const match = descriptor.match(/^(\d+(?:\.\d*)?|\.\d+)(w|x)$/);
     if (!match) {

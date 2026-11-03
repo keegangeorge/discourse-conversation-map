@@ -174,6 +174,9 @@ module("Unit | Lib | conversation-map", function () {
     for (const srcset of [
       "data:image/png;base64,AAAA 320w",
       "data:image/svg+xml,local.png 320w",
+      "data:image/svg+xml,&nbsp;local.png 320w",
+      "https://remote.example/a.png,&nbsp;local.png 320w",
+      "data:image/svg+xml,&#x2003;local.png 320w",
       "https://remote.example/a,b.png 320w",
     ]) {
       assert.deepEqual(
