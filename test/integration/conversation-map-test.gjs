@@ -184,7 +184,9 @@ module("Integration | Component | ConversationMap", function (hooks) {
         if (outcome === "failure") {
           reject(new Error("Synthetic navigation failure"));
           await waitFor("p.conversation-map__status");
-          assert.dom(".conversation-map-return").isFocused("failed navigation does not transfer focus");
+          assert
+            .dom(".conversation-map-return")
+            .isFocused("failed navigation does not transfer focus");
           assert
             .dom(".conversation-map-return")
             .exists("failed Return retains its anchor");
@@ -315,7 +317,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
   });
 
   test("the same desktop landmark can be activated after native scrolling", async function (assert) {
-    const model = topic();
+    const model = makeTopic();
     model.bookmarks = [
       { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },
     ];
@@ -463,7 +465,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
   });
 
   test("filtered topics hide Return without losing the reading anchor", async function (assert) {
-    const model = topic();
+    const model = makeTopic();
     model.id = 7123;
     model.bookmarks = [
       { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },

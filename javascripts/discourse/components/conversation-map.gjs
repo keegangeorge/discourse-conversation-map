@@ -818,9 +818,7 @@ export default class ConversationMap extends Component {
     if (!this.args.mobile) {
       this.close();
     }
-    const returnControl = !this.args.mobile
-      ? event?.currentTarget
-      : null;
+    const returnControl = !this.args.mobile ? event?.currentTarget : null;
     this.#scrubQueue.request(
       {
         number: anchor.number,
