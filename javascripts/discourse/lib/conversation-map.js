@@ -72,12 +72,14 @@ export function configuredUploadBases(setup, origin) {
   // bucket, so never authorize it. Only explicit CDN namespaces are eligible;
   // root CDN paths (including a shared /uploads root) cannot identify a site.
   const hasNamespace = (url) =>
-    url && url.pathname.replace(/\/$/, "") !== "" &&
+    url &&
+    url.pathname.replace(/\/$/, "") !== "" &&
     url.pathname.replace(/\/$/, "") !== "/uploads";
-  const add = (url) => bases.push({
-    origin: url.origin,
-    prefix: url.pathname.replace(/\/$/, ""),
-  });
+  const add = (url) =>
+    bases.push({
+      origin: url.origin,
+      prefix: url.pathname.replace(/\/$/, ""),
+    });
   const cdn = parse(setup?.cdn);
   const baseUri = setup?.baseUri ?? "";
   if (
