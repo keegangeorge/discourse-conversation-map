@@ -299,7 +299,9 @@ module("Integration | Component | ConversationMapMobile", function (hooks) {
         find(".conversation-map-mobile-return").click();
         await waitFor(".conversation-map-mobile-return", { count: 0 });
         if (mode === "owned") {
-          await waitUntil(() => find("#topic-progress") === document.activeElement);
+          await waitUntil(
+            () => find("#topic-progress") === document.activeElement
+          );
         } else {
           await new Promise(requestAnimationFrame);
         }
