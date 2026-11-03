@@ -300,12 +300,35 @@ module("Unit | Lib | conversation-map", function () {
       );
     }
     for (const baseUri of [
-      ...[9, 10, 13, 0, 32, 127].map((code) => `/.${String.fromCharCode(code)}.`),
-      1, false, {},
+      ...[9, 10, 13, 0, 32, 127].map(
+        (code) => `/.${String.fromCharCode(code)}.`
+      ),
+      1,
+      false,
+      {},
     ]) {
-      const bases = configuredUploadBases({ cdn: "https://shared.example/tenant", baseUri }, origin);
-      assert.deepEqual(bases, [], "invalid base URI cannot escape its CDN tenant");
-      assert.deepEqual(inspectPost({ id: 1, cooked: '<img src="https://shared.example/uploads/other-tenant/a.jpg">' }, origin, bases).images, [], "invalid static CDN configuration never permits another namespace");
+      const bases = configuredUploadBases(
+        { cdn: "https://shared.example/tenant", baseUri },
+        origin
+      );
+      assert.deepEqual(
+        bases,
+        [],
+        "invalid base URI cannot escape its CDN tenant"
+      );
+      assert.deepEqual(
+        inspectPost(
+          {
+            id: 1,
+            cooked:
+              '<img src="https://shared.example/uploads/other-tenant/a.jpg">',
+          },
+          origin,
+          bases
+        ).images,
+        [],
+        "invalid static CDN configuration never permits another namespace"
+      );
     }
     assert.deepEqual(
       configuredUploadBases(
