@@ -31,6 +31,40 @@ export function sampleIds(stream, limit, knownIds = new Set()) {
   return [...ids];
 }
 
+function srcsetCandidates(srcset, width) {
+  const candidates = [];
+  let remaining = srcset;
+  // HTML srcset boundaries use ASCII whitespace, not JavaScript Unicode whitespace.
+  while (remaining) {
+    remaining = remaining.replace(/^[,\t\n\f\r ]+/, "");
+    const token = remaining.match(/^[^\t\n\f\r ]+/)?.[0];
+    if (!token) {
+      break;
+    }
+    remaining = remaining.slice(token.length);
+    // Commas inside a URL (notably data URLs) are not candidate separators.
+    // A trailing comma ends a URL-only entry, which has no supported descriptor.
+    if (token.endsWith(",")) {
+      continue;
+    }
+    const end = remaining.indexOf(",");
+    const descriptor = (end < 0 ? remaining : remaining.slice(0, end)).replace(
+      /^[\t\n\f\r ]+|[\t\n\f\r ]+$/g,
+      ""
+    );
+    remaining = end < 0 ? "" : remaining.slice(end + 1);
+    const match = descriptor.match(/^(\d+(?:\.\d*)?|\.\d+)(w|x)$/);
+    if (!match) {
+      continue;
+    }
+    const size = Number(match[1]) * (match[2] === "x" ? width || 690 : 1);
+    if (Number.isFinite(size) && size > 0) {
+      candidates.push({ url: token, width: size });
+    }
+  }
+  return candidates.sort((a, b) => a.width - b.width);
+}
+
 export function inspectPost(post, origin) {
   const neutral = {
     id: post.id,
@@ -62,35 +96,40 @@ export function inspectPost(post, origin) {
       if (img.width && img.width < 100) {
         continue;
       }
-      const candidates = (img.getAttribute("srcset") || "")
-        .split(",")
-        .map((candidate) => candidate.trim().match(/^(\S+)\s+([\d.]+)(w|x)$/))
-        .filter(Boolean)
-        .map(([, url, size, unit]) => ({
-          url,
-          width: Number(size) * (unit === "x" ? img.width || 690 : 1),
-        }))
-        .sort((a, b) => a.width - b.width);
-      const source =
-        (
-          candidates.find((candidate) => candidate.width >= 320) ||
-          candidates.at(-1)
-        )?.url || img.getAttribute("src");
-      if (!source) {
-        continue;
-      }
-      try {
-        const url = new URL(source, origin);
-        // Reuse local thumbnails only. Don't load third-party tracking images on hover.
-        if (
-          url.origin === origin &&
-          /^https?:$/.test(url.protocol) &&
-          !images.some((image) => image.url === url.href)
-        ) {
-          images.push({ url: url.href, alt: img.getAttribute("alt") || "" });
+      const candidates = srcsetCandidates(
+        img.getAttribute("srcset") || "",
+        img.width
+      );
+      const preferred =
+        candidates.find((candidate) => candidate.width >= 320) ||
+        candidates.at(-1);
+      // Keep the existing size preference, then try the other candidates and src.
+      // A rejected remote candidate must not hide a usable local thumbnail.
+      const sources = [
+        preferred?.url,
+        ...candidates
+          .filter((candidate) => candidate !== preferred)
+          .map((candidate) => candidate.url),
+        img.getAttribute("src"),
+      ];
+      for (const source of sources) {
+        if (!source) {
+          continue;
         }
-      } catch {
-        // Malformed image URLs are not previewable.
+        try {
+          const url = new URL(source, origin);
+          // Reuse local thumbnails only. Don't load third-party tracking images on hover.
+          if (url.origin !== origin || !/^https?:$/.test(url.protocol)) {
+            continue;
+          }
+          if (!images.some((image) => image.url === url.href)) {
+            images.push({ url: url.href, alt: img.getAttribute("alt") || "" });
+          }
+          // Each img contributes at most one thumbnail, even if it is a duplicate.
+          break;
+        } catch {
+          // A malformed candidate must not prevent trying the remaining sources.
+        }
       }
     }
   }
