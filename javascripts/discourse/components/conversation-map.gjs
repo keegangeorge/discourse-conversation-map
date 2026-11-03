@@ -818,7 +818,9 @@ export default class ConversationMap extends Component {
     }
     const returnControl =
       this.args.mobile &&
-      event?.currentTarget?.classList.contains("conversation-map-mobile-return") &&
+      event?.currentTarget?.classList.contains(
+        "conversation-map-mobile-return"
+      ) &&
       document.activeElement === event.currentTarget
         ? event.currentTarget
         : null;

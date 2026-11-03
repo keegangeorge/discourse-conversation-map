@@ -327,7 +327,12 @@ module("Integration | Component | ConversationMapMobile", function (hooks) {
         const current = tracked(new TopicFixture());
         mapSession(current.value.id).anchor = { number: 1 };
         let resolve, reject;
-        transform.returns(new Promise((yes, no) => { resolve = yes; reject = no; }));
+        transform.returns(
+          new Promise((yes, no) => {
+            resolve = yes;
+            reject = no;
+          })
+        );
         await render(
           <template>
             <div class="topic-navigation">
@@ -349,10 +354,16 @@ module("Integration | Component | ConversationMapMobile", function (hooks) {
         if (outcome === "failure") {
           reject(new Error("Synthetic navigation failure"));
           await waitFor(".conversation-map-mobile-return:not([disabled])");
-          assert.dom(".conversation-map-mobile-return").exists("failed Return retains its anchor");
+          assert
+            .dom(".conversation-map-mobile-return")
+            .exists("failed Return retains its anchor");
         }
         button.blur();
-        assert.strictEqual(document.activeElement, document.body, "focus is unowned before switching topics");
+        assert.strictEqual(
+          document.activeElement,
+          document.body,
+          "focus is unowned before switching topics"
+        );
         const next = new TopicFixture();
         next.id = 124;
         current.value = next;
@@ -362,7 +373,11 @@ module("Integration | Component | ConversationMapMobile", function (hooks) {
         }
         await settled();
         await new Promise(requestAnimationFrame);
-        assert.strictEqual(document.activeElement, document.body, "the old request cannot focus the new topic's progress");
+        assert.strictEqual(
+          document.activeElement,
+          document.body,
+          "the old request cannot focus the new topic's progress"
+        );
       }
     } finally {
       jump.restore();
