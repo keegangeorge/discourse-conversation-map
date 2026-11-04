@@ -1,5 +1,6 @@
 import { module, test } from "qunit";
 import {
+  configuredUploadBases,
   indexForPointer,
   inspectPost,
   percentForIndex,
@@ -313,6 +314,332 @@ module("Unit | Lib | conversation-map", function () {
       );
       assert.strictEqual(post.text, "", "concealed text is excluded");
       assert.deepEqual(post.images, [], "concealed images are excluded");
+    }
+  });
+
+  test("srcset fallback preserves configured CDN trust boundaries", function (assert) {
+    const origin = "https://forum.example";
+    const bases = configuredUploadBases(
+      {
+        s3BaseUrl: "https://bucket.example/shared",
+        s3Cdn: "https://cdn.example/site",
+      },
+      origin
+    );
+    for (const [srcset, src, expected] of [
+      [
+        "https://cdn.example/other/a.png 320w, https://cdn.example/site/b.png 640w",
+        "https://tracker.example/c.png",
+        "https://cdn.example/site/b.png",
+      ],
+      [
+        "https://bucket.example/shared/a.png 320w",
+        "https://cdn.example/site/c.png",
+        "https://cdn.example/site/c.png",
+      ],
+      [
+        "https://cdn.example/other/a.png 320w",
+        "/local.png",
+        "https://forum.example/local.png",
+      ],
+      [
+        "https://cdn.example/site/a.png 320w, /local.png 640w",
+        "/src.png",
+        "https://cdn.example/site/a.png",
+      ],
+      [
+        "https://cdn.example/other/a.png 320w",
+        "https://bucket.example/shared/c.png",
+        null,
+      ],
+    ]) {
+      const result = inspectPost(
+        { id: 1, cooked: `<img src="${src}" srcset="${srcset}">` },
+        origin,
+        bases
+      );
+      assert.deepEqual(
+        result.images.map((image) => image.url),
+        expected ? [expected] : [],
+        srcset
+      );
+    }
+  });
+
+  test("configured upload CDN requires the exact origin and tenant path", function (assert) {
+    const origin = "https://forum.example";
+    const bases = configuredUploadBases(
+      {
+        s3BaseUrl: "https://bucket.example/site",
+        s3Cdn: "https://global.discourse-cdn.com/themecreator",
+      },
+      origin
+    );
+    const image = (url, flags = {}, wrapper = "") =>
+      inspectPost(
+        { id: 1, ...flags, cooked: `${wrapper}<img src="${url}"></span>` },
+        origin,
+        bases
+      ).images;
+    assert.strictEqual(
+      image("/photo.jpg").length,
+      1,
+      "same-origin remains allowed"
+    );
+    assert.strictEqual(
+      image("https://global.discourse-cdn.com/themecreator/original/a.jpg")
+        .length,
+      1,
+      "configured tenant is allowed"
+    );
+    assert.strictEqual(
+      image("https://bucket.example/site/original/a.jpg").length,
+      0,
+      "raw upload storage has no proven tenant scope"
+    );
+    for (const url of [
+      "https://global.discourse-cdn.com/other/original/a.jpg",
+      "https://global.discourse-cdn.com/themecreator-other/a.jpg",
+      "https://global.discourse-cdn.com:444/themecreator/a.jpg",
+      "http://global.discourse-cdn.com/themecreator/a.jpg",
+      "https://tracker.example/themecreator/a.jpg",
+      "https://global.discourse-cdn.com/themecreator/../other/a.jpg",
+      "https://global.discourse-cdn.com/themecreator/%2f../other/a.jpg",
+      "https://global.discourse-cdn.com/themecreator/%252e%252e/a.jpg",
+      // eslint-disable-next-line no-script-url -- regression input must remain rejected
+      "javascript:alert(1)",
+      "data:image/png;base64,aaaa",
+    ]) {
+      assert.deepEqual(
+        image(url),
+        [],
+        `untrusted or ambiguous URL rejected: ${url}`
+      );
+    }
+    const trusted =
+      "https://global.discourse-cdn.com/themecreator/original/a.jpg";
+    assert.deepEqual(
+      image(trusted, { hidden: true }),
+      [],
+      "hidden post excluded"
+    );
+    assert.deepEqual(
+      image(trusted, { deleted_at: "2026-01-01" }),
+      [],
+      "deleted post excluded"
+    );
+    assert.deepEqual(
+      image(trusted, {}, '<span class="spoiler">'),
+      [],
+      "spoiler excluded"
+    );
+    assert.deepEqual(
+      inspectPost({ id: 1, cooked: `<img src="${trusted}">` }, origin).images,
+      [],
+      "absent configuration remains same-origin only"
+    );
+  });
+
+  test("bootstrap upload bases are explicit and safely scoped", function (assert) {
+    const origin = "https://forum.example";
+    assert.deepEqual(configuredUploadBases(undefined, origin), []);
+    assert.deepEqual(
+      configuredUploadBases({ s3Cdn: "https://cdn.example/tenant" }, origin),
+      [],
+      "S3 CDN requires configured upload storage like core bootstrap"
+    );
+    for (const s3BaseUrl of [
+      "garbage",
+      // eslint-disable-next-line no-script-url -- invalid bootstrap scheme regression
+      "javascript:alert(1)",
+      "https://user:pass@cdn.example/site",
+      "https://cdn.example/site?redirect=1",
+      "https://cdn.example/site#fragment",
+      "https://cdn.example/%2ftenant",
+    ]) {
+      assert.deepEqual(
+        configuredUploadBases({ s3BaseUrl }, origin),
+        [],
+        `invalid bootstrap value ignored: ${s3BaseUrl}`
+      );
+    }
+    for (const invalid of [
+      "https://shared.example/themecreator/../",
+      "https://shared.example/themecreator/./",
+      "https://shared.example/themecreator/%2e%2e/",
+      "https://shared.example/themecreator/%2E./",
+      ...[9, 10, 13, 0, 32, 127].map(
+        (code) =>
+          `https://shared.example/themecreator/.${String.fromCharCode(code)}./`
+      ),
+    ]) {
+      assert.deepEqual(
+        configuredUploadBases({ s3BaseUrl: invalid }, origin),
+        [],
+        "raw traversal cannot broaden the storage base"
+      );
+      const bases = configuredUploadBases(
+        { s3BaseUrl: "https://bucket.example/site", s3Cdn: invalid },
+        origin
+      );
+      assert.deepEqual(
+        bases,
+        [],
+        "invalid CDN base ignored before normalization"
+      );
+      assert.deepEqual(
+        inspectPost(
+          {
+            id: 1,
+            cooked: '<img src="https://shared.example/other-tenant/a.jpg">',
+          },
+          origin,
+          bases
+        ).images,
+        [],
+        "malformed CDN configuration never permits sibling tenants"
+      );
+    }
+    for (const baseUri of [
+      ...[9, 10, 13, 0, 32, 127].map(
+        (code) => `/.${String.fromCharCode(code)}.`
+      ),
+      1,
+      false,
+      {},
+    ]) {
+      const bases = configuredUploadBases(
+        { cdn: "https://shared.example/tenant", baseUri },
+        origin
+      );
+      assert.deepEqual(
+        bases,
+        [],
+        "invalid base URI cannot escape its CDN tenant"
+      );
+      assert.deepEqual(
+        inspectPost(
+          {
+            id: 1,
+            cooked:
+              '<img src="https://shared.example/uploads/other-tenant/a.jpg">',
+          },
+          origin,
+          bases
+        ).images,
+        [],
+        "invalid static CDN configuration never permits another namespace"
+      );
+    }
+    assert.deepEqual(
+      configuredUploadBases(
+        { cdn: "//cdn.example/tenant", baseUri: "/forum" },
+        origin
+      ),
+      [{ origin: "https://cdn.example", prefix: "/tenant/forum/uploads" }],
+      "static CDN is restricted to the forum upload subtree"
+    );
+    assert.deepEqual(
+      configuredUploadBases(
+        { cdn: "https://cdn.example/tenant", baseUri: "/../other" },
+        origin
+      ),
+      [],
+      "ambiguous base URI ignored"
+    );
+  });
+
+  test("shared storage and raw delimiters cannot broaden upload trust", function (assert) {
+    const origin = "https://forum.example";
+    const images = (setup, url) =>
+      inspectPost(
+        { id: 1, cooked: `<img src="${url}">` },
+        origin,
+        configuredUploadBases(setup, origin)
+      ).images;
+    const shared = {
+      s3BaseUrl: "https://bucket.example",
+      s3Cdn: "https://cdn.example/this-site",
+      cdn: "https://static.example",
+    };
+    for (const url of [
+      "https://bucket.example/uploads/other-site/original/a.jpg",
+      "https://static.example/uploads/other-site/original/a.jpg",
+    ]) {
+      assert.deepEqual(
+        images(shared, url),
+        [],
+        "unscoped shared storage is not trusted"
+      );
+    }
+    assert.strictEqual(
+      images(shared, "https://cdn.example/this-site/original/a.jpg").length,
+      1,
+      "explicit scoped S3 CDN remains usable with a shared bucket"
+    );
+    for (const setup of [
+      { s3BaseUrl: "https://bucket.example/shared" },
+      { s3BaseUrl: "https://bucket.example", s3Cdn: "https://cdn.example/" },
+      {
+        s3BaseUrl: "https://bucket.example",
+        s3Cdn: "https://cdn.example/uploads/",
+      },
+      { cdn: "https://cdn.example/", baseUri: "/forum" },
+      { cdn: "https://cdn.example/uploads/" },
+      ...["//", "/uploads//", "/%75ploads/", "/upl%6fads/"].flatMap((path) => [
+        {
+          s3BaseUrl: "https://bucket.example",
+          s3Cdn: `https://cdn.example${path}`,
+        },
+        { cdn: `https://cdn.example${path}` },
+      ]),
+      { cdn: "https://cdn.example/tenant", baseUri: "/forum//" },
+    ]) {
+      assert.deepEqual(
+        configuredUploadBases(setup, origin),
+        [],
+        "unknown tenant scope is skipped"
+      );
+    }
+    for (const suffix of ["?", "#"]) {
+      for (const key of ["s3BaseUrl", "s3Cdn", "cdn"]) {
+        const setup = { [key]: `https://shared.example/site/..${suffix}` };
+        if (key === "s3Cdn") {
+          setup.s3BaseUrl = "https://bucket.example/site";
+        }
+        assert.deepEqual(
+          images(setup, "https://shared.example/other-site/a.jpg"),
+          [],
+          `raw ${suffix} must not normalize ${key} into root permission`
+        );
+      }
+    }
+  });
+
+  test("static CDN previews only the configured upload subtree", function (assert) {
+    const origin = "https://forum.example";
+    const bases = configuredUploadBases(
+      { cdn: "https://cdn.example/tenant", baseUri: "/forum" },
+      origin
+    );
+    const images = (url) =>
+      inspectPost({ id: 1, cooked: `<img src="${url}">` }, origin, bases)
+        .images;
+    assert.strictEqual(
+      images("https://cdn.example/tenant/forum/uploads/default/a.jpg").length,
+      1,
+      "configured static CDN image is actually previewed"
+    );
+    for (const url of [
+      "https://cdn.example/tenant/forum/assets/a.jpg",
+      "https://cdn.example/tenant-other/forum/uploads/default/a.jpg",
+      "https://cdn.example/tenant/forum/uploads-other/a.jpg",
+    ]) {
+      assert.deepEqual(
+        images(url),
+        [],
+        "only the configured upload boundary matches"
+      );
     }
   });
 
