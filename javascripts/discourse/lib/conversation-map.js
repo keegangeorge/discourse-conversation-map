@@ -31,6 +31,106 @@ export function sampleIds(stream, limit, knownIds = new Set()) {
   return [...ids];
 }
 
+// These bases come only from Discourse's server-rendered bootstrap, never from
+// cooked post markup. Static CDN uploads also retain the site's base URI.
+export function configuredUploadBases(setup, origin) {
+  const hasRawControls = (value) =>
+    Array.from(value).some(
+      (char) => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127
+    );
+  const parse = (value) => {
+    // Check the raw input first: URL parsing erases dot segments, which must
+    // never turn an invalid tenant base into broader root-origin permission.
+    if (
+      typeof value !== "string" ||
+      !/^(https?:)?\/\//i.test(value) ||
+      hasRawControls(value) ||
+      value.includes("%") ||
+      /(?:^|\/)\.{1,2}(?:\/|$)/.test(value) ||
+      /[?#\\]/.test(value)
+    ) {
+      return null;
+    }
+    try {
+      const url = new URL(value, origin);
+      if (
+        !/^https?:$/.test(url.protocol) ||
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        url.pathname.includes("//")
+      ) {
+        return null;
+      }
+      return url;
+    } catch {
+      return null;
+    }
+  };
+  const bases = [];
+  // Bootstrap has no database identifier. A raw storage URL may be a shared
+  // bucket, so never authorize it. Only explicit CDN namespaces are eligible;
+  // root CDN paths (including a shared /uploads root) cannot identify a site.
+  const hasNamespace = (url) =>
+    url &&
+    url.pathname.replace(/\/$/, "") !== "" &&
+    url.pathname.replace(/\/$/, "") !== "/uploads";
+  const add = (url) =>
+    bases.push({
+      origin: url.origin,
+      prefix: url.pathname.replace(/\/$/, ""),
+    });
+  const cdn = parse(setup?.cdn);
+  const baseUri = setup?.baseUri ?? "";
+  if (
+    hasNamespace(cdn) &&
+    typeof baseUri === "string" &&
+    !hasRawControls(baseUri) &&
+    !baseUri.includes("//") &&
+    (baseUri === "" || /^\/(?!\/)[^?#\\]*$/.test(baseUri)) &&
+    !/%|(?:^|\/)\.{1,2}(?:\/|$)/.test(baseUri)
+  ) {
+    cdn.pathname = `${cdn.pathname.replace(/\/$/, "")}${baseUri.replace(/\/$/, "")}/uploads/`;
+    add(cdn);
+  }
+  if (parse(setup?.s3BaseUrl)) {
+    const s3Cdn = parse(setup?.s3Cdn);
+    if (hasNamespace(s3Cdn)) {
+      add(s3Cdn);
+    }
+  }
+  return bases;
+}
+
+function trustedImageURL(source, origin, uploadBases) {
+  try {
+    const url = new URL(source, origin);
+    if (!/^https?:$/.test(url.protocol) || url.username || url.password) {
+      return null;
+    }
+    if (url.origin === origin) {
+      return url;
+    }
+    // Reject ambiguous encoded separators/traversal before matching a tenant
+    // namespace. The same parsed origin AND a path boundary must match.
+    if (/%(?:2e|2f|5c|25)/i.test(url.pathname) || source.includes("\\")) {
+      return null;
+    }
+    for (const { origin: allowedOrigin, prefix } of uploadBases) {
+      if (
+        url.origin === allowedOrigin &&
+        (url.pathname === prefix || url.pathname.startsWith(`${prefix}/`))
+      ) {
+        return url;
+      }
+    }
+  } catch {
+    // Malformed URLs are not previewable.
+  }
+  return null;
+}
+
 function srcsetCandidates(srcset, width) {
   const candidates = [];
   let remaining = srcset;
@@ -65,7 +165,7 @@ function srcsetCandidates(srcset, width) {
   return candidates.sort((a, b) => a.width - b.width);
 }
 
-export function inspectPost(post, origin) {
+export function inspectPost(post, origin, uploadBases = []) {
   const neutral = {
     id: post.id,
     number: post.post_number,
@@ -91,7 +191,7 @@ export function inspectPost(post, origin) {
     )
     .forEach((el) => el.remove());
   const images = [];
-  if (!post.hidden && !post.deleted_at) {
+  {
     for (const img of doc.querySelectorAll("img:not(.emoji):not(.avatar)")) {
       if (img.width && img.width < 100) {
         continue;
@@ -116,20 +216,15 @@ export function inspectPost(post, origin) {
         if (!source) {
           continue;
         }
-        try {
-          const url = new URL(source, origin);
-          // Reuse local thumbnails only. Don't load third-party tracking images on hover.
-          if (url.origin !== origin || !/^https?:$/.test(url.protocol)) {
-            continue;
-          }
-          if (!images.some((image) => image.url === url.href)) {
-            images.push({ url: url.href, alt: img.getAttribute("alt") || "" });
-          }
-          // Each img contributes at most one thumbnail, even if it is a duplicate.
-          break;
-        } catch {
-          // A malformed candidate must not prevent trying the remaining sources.
+        const url = trustedImageURL(source, origin, uploadBases);
+        if (!url) {
+          continue;
         }
+        if (!images.some((image) => image.url === url.href)) {
+          images.push({ url: url.href, alt: img.getAttribute("alt") || "" });
+        }
+        // Each img contributes at most one thumbnail, even if it is a duplicate.
+        break;
       }
     }
   }
@@ -138,10 +233,7 @@ export function inspectPost(post, origin) {
   doc
     .querySelectorAll("img, video, audio, pre, .meta")
     .forEach((el) => el.remove());
-  const text =
-    post.hidden || post.deleted_at
-      ? ""
-      : doc.textContent.replace(/\s+/g, " ").trim().slice(0, 260);
+  const text = doc.textContent.replace(/\s+/g, " ").trim().slice(0, 260);
   return {
     id: post.id,
     number: post.post_number,

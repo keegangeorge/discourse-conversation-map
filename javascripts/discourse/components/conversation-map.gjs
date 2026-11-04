@@ -15,6 +15,7 @@ import dIcon from "discourse/ui-kit/helpers/d-icon";
 import { i18n } from "discourse-i18n";
 import {
   clamp,
+  configuredUploadBases,
   indexForPointer,
   inspectPost,
   percentForIndex,
@@ -180,6 +181,7 @@ export default class ConversationMap extends Component {
   #captureElement;
   #pointerId;
   #cache = new Map();
+  #uploadBases;
   #loadedSnapshots = new WeakMap();
   #cooked = new Map();
   #topicId;
@@ -818,14 +820,23 @@ export default class ConversationMap extends Component {
     if (!this.args.mobile) {
       this.close();
     }
-    const returnControl = !this.args.mobile ? event?.currentTarget : null;
+    const focusedReturn = !this.args.mobile ? event?.currentTarget : null;
+    const returnControl =
+      this.args.mobile &&
+      event?.currentTarget?.classList.contains(
+        "conversation-map-mobile-return"
+      ) &&
+      document.activeElement === event.currentTarget
+        ? event.currentTarget
+        : null;
     this.#scrubQueue.request(
       {
         number: anchor.number,
         offset: anchor.offset,
         returnAnchor: anchor,
         focusedReturn:
-          returnControl === document.activeElement ? returnControl : null,
+          focusedReturn === document.activeElement ? focusedReturn : null,
+        returnControl,
       },
       true
     );
@@ -925,8 +936,20 @@ export default class ConversationMap extends Component {
             ?.querySelector(".conversation-map__track")
             ?.focus({ preventScroll: true });
         }
+        const progress = request.returnControl
+          ?.closest(".topic-navigation")
+          ?.querySelector("#topic-progress");
         mapSession(this.args.topic.id).anchor = null;
         this.returning = null;
+        // Move focus before removing the compact button, and only for the
+        // successful request that still owns this anchor and focus.
+        if (
+          progress?.isConnected &&
+          (document.activeElement === request.returnControl ||
+            document.activeElement === document.body)
+        ) {
+          progress.focus({ preventScroll: true });
+        }
       }
       if (success && valid() && this.args.mobile) {
         this.dismissMobile();
@@ -981,7 +1004,17 @@ export default class ConversationMap extends Component {
       cachedPost?.date !== post.created_at ||
       cachedPost?.actionCode !== post.action_code
     ) {
-      this.#cache.set(post.id, inspectPost(post, window.location.origin));
+      this.#cache.set(
+        post.id,
+        inspectPost(
+          post,
+          window.location.origin,
+          (this.#uploadBases ??= configuredUploadBases(
+            document.getElementById("data-discourse-setup")?.dataset,
+            window.location.origin
+          ))
+        )
+      );
       this.#cooked.set(post.id, post.cooked);
       if (this.#cache.size > 160) {
         const oldest = this.#cache.keys().next().value;
