@@ -820,6 +820,7 @@ export default class ConversationMap extends Component {
     if (!this.args.mobile) {
       this.close();
     }
+    const focusedReturn = !this.args.mobile ? event?.currentTarget : null;
     const returnControl =
       this.args.mobile &&
       event?.currentTarget?.classList.contains(
@@ -833,6 +834,8 @@ export default class ConversationMap extends Component {
         number: anchor.number,
         offset: anchor.offset,
         returnAnchor: anchor,
+        focusedReturn:
+          focusedReturn === document.activeElement ? focusedReturn : null,
         returnControl,
       },
       true
@@ -925,6 +928,14 @@ export default class ConversationMap extends Component {
         request.returnAnchor === this.returning &&
         request.returnAnchor
       ) {
+        if (
+          request.focusedReturn?.isConnected &&
+          document.activeElement === request.focusedReturn
+        ) {
+          this.target
+            ?.querySelector(".conversation-map__track")
+            ?.focus({ preventScroll: true });
+        }
         const progress = request.returnControl
           ?.closest(".topic-navigation")
           ?.querySelector("#topic-progress");
