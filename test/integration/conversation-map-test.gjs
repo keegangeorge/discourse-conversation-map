@@ -609,26 +609,41 @@ module("Integration | Component | ConversationMap", function (hooks) {
     model.postStream.posts.push(...later);
     model.postStream.stream.push(...later.map((post) => post.id));
     const events = this.owner.lookup("service:app-events");
-    events.trigger("topic:current-post-scrolled", { postIndex: 2, percent: 0.1 });
+    events.trigger("topic:current-post-scrolled", {
+      postIndex: 2,
+      percent: 0.1,
+    });
     await settled();
     assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", "1");
     assert
       .dom(".conversation-map__preview")
-      .includesText("Opening", "ordinary scrolling keeps the selected metadata");
+      .includesText(
+        "Opening",
+        "ordinary scrolling keeps the selected metadata"
+      );
 
     opening.cooked = "<p>Edited opening</p>";
-    events.trigger("topic:current-post-scrolled", { postIndex: 3, percent: 0.2 });
+    events.trigger("topic:current-post-scrolled", {
+      postIndex: 3,
+      percent: 0.2,
+    });
     await settled();
     assert
       .dom(".conversation-map__preview")
       .includesText("Edited opening", "retained metadata still updates");
 
     opening.hidden = true;
-    events.trigger("topic:current-post-scrolled", { postIndex: 4, percent: 0.3 });
+    events.trigger("topic:current-post-scrolled", {
+      postIndex: 4,
+      percent: 0.3,
+    });
     await settled();
     assert
       .dom(".conversation-map__preview")
-      .doesNotIncludeText("Edited opening", "selection does not retain hidden content");
+      .doesNotIncludeText(
+        "Edited opening",
+        "selection does not retain hidden content"
+      );
     await triggerKeyEvent(".conversation-map__track", "keydown", "Escape");
     assert.dom(".conversation-map__preview").doesNotExist();
     assert.dom(".conversation-map__track").isFocused();
