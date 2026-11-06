@@ -1017,7 +1017,10 @@ export default class ConversationMap extends Component {
       );
       this.#cooked.set(post.id, post.cooked);
       if (this.#cache.size > 160) {
-        const oldest = this.#cache.keys().next().value;
+        // Ordinary topic scrolling must not evict the preview being inspected.
+        // Hidden/deleted posts still take the explicit removal path above.
+        const selectedId = this.stream[this.selectedIndex];
+        const oldest = [...this.#cache.keys()].find((id) => id !== selectedId);
         this.#cache.delete(oldest);
         this.#cooked.delete(oldest);
       }
