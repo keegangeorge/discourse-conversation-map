@@ -179,7 +179,9 @@
   }
 
   &.is-expanded &__reading {
-    inset-inline-start: 0;
+    inset-inline-start: auto;
+    inset-inline-end: 0;
+    width: max-content;
     top: -36px !important;
     height: auto !important;
     padding: 3px 6px;
