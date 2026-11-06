@@ -613,7 +613,9 @@ module("Integration | Component | ConversationMap", function (hooks) {
       postIndex: 2,
       percent: 0.1,
     });
-    await settled();
+    await waitUntil(() =>
+      find(".conversation-map__footer").textContent.includes("#4")
+    );
     assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", "1");
     assert
       .dom(".conversation-map__preview")
@@ -627,7 +629,9 @@ module("Integration | Component | ConversationMap", function (hooks) {
       postIndex: 3,
       percent: 0.2,
     });
-    await settled();
+    await waitUntil(() =>
+      find(".conversation-map__footer").textContent.includes("#9")
+    );
     assert
       .dom(".conversation-map__preview")
       .includesText("Edited opening", "retained metadata still updates");
@@ -637,7 +641,9 @@ module("Integration | Component | ConversationMap", function (hooks) {
       postIndex: 4,
       percent: 0.3,
     });
-    await settled();
+    await waitUntil(() =>
+      find(".conversation-map__footer").textContent.includes("#10")
+    );
     assert
       .dom(".conversation-map__preview")
       .doesNotIncludeText(
