@@ -316,6 +316,47 @@ module("Integration | Component | ConversationMapMobile", function (hooks) {
     }
   });
 
+  test("a failed navigation can retry the same cached preview", async function (assert) {
+    const topic = new TopicFixture();
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    const transform = sinon.stub(Topic, "applyTransformations");
+    transform.onFirstCall().rejects(new Error("Synthetic navigation failure"));
+    transform.onSecondCall().resolves();
+    try {
+      await render(
+        <template>
+          <div class="topic-navigation"><ConversationMap
+              @active={{true}}
+              @mobile={{true}}
+              @topic={{topic}}
+            /></div>
+        </template>
+      );
+      await waitFor(".conversation-map-sheet[open]");
+      await triggerKeyEvent(".conversation-map__track", "keydown", "End");
+      await click(".conversation-map-sheet__open");
+      await waitUntil(() => transform.calledOnce);
+      await waitFor(".conversation-map-sheet__open:not([disabled])");
+      assert.dom(".conversation-map-sheet[open]").exists();
+      assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", "3");
+      assert
+        .dom(".conversation-map-sheet__open")
+        .hasText("Retry opening post");
+      assert
+        .dom(".conversation-map__status")
+        .hasText("This post could not be opened. Try again or choose another position.");
+      await click(".conversation-map-sheet__open");
+      await waitFor(".conversation-map-sheet", { count: 0 });
+      assert.strictEqual(jump.callCount, 2, "same selection navigates again");
+      assert.true(transform.calledTwice, "successful retry completes normally");
+    } finally {
+      jump.restore();
+      url.restore();
+      transform.restore();
+    }
+  });
+
   test("failed or cancelled Return cannot restore focus in another topic", async function (assert) {
     const jump = sinon.stub(DiscourseURL, "jumpToPost");
     const url = sinon.stub(DiscourseURL, "replaceState");

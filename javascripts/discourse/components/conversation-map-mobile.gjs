@@ -181,7 +181,6 @@ export default class ConversationMapMobile extends Component {
             class="btn btn-primary conversation-map-sheet__open"
             disabled={{or
               @map.loading
-              @map.failed
               @map.navigating
               (not @map.preview)
             }}
@@ -189,7 +188,9 @@ export default class ConversationMapMobile extends Component {
             {{on "click" @map.readPost}}
           >
             {{#if @map.navigating}}{{dLoadingSpinner size="small"}}{{/if}}
-            {{i18n (themePrefix "open_post")}}
+            {{i18n
+              (themePrefix (if @map.failed "retry_open_post" "open_post"))
+            }}
           </button>
         </footer>
       </dialog>

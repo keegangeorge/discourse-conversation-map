@@ -12,7 +12,7 @@ export default <template>
         <span class="sr-only">{{i18n (themePrefix "loading")}}</span>
       </div>
     {{else if @map.failed}}<p class="conversation-map__status">{{i18n
-          (themePrefix "unavailable")
+          (themePrefix (if @map.preview "navigation_failed" "unavailable"))
         }}</p>
     {{else if @map.preview}}
       <div class="conversation-map__byline"><strong

@@ -804,6 +804,9 @@ export default class ConversationMap extends Component {
       return;
     }
     const number = this.preview.number;
+    // A cached preview can survive a failed full-post navigation. An explicit
+    // retry must not require selecting a different position first.
+    this.failed = false;
     this.#rememberReturnAnchor();
     if (!this.args.mobile) {
       this.close();
