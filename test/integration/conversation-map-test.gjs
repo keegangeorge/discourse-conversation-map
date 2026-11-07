@@ -16,6 +16,7 @@ import DiscourseURL from "discourse/lib/url";
 import Topic from "discourse/models/topic";
 import { setupRenderingTest } from "discourse/tests/helpers/component-test";
 import ConversationMap from "../../discourse/components/conversation-map.gjs";
+import PreviewLoader from "../../discourse/lib/preview-loader.js";
 import {
   mapSession,
   resetMapSessionForUrl,
@@ -57,6 +58,40 @@ module("Integration | Component | ConversationMap", function (hooks) {
   hooks.afterEach(function () {
     settings.minimum_posts = originalMinimum;
     settings.sample_posts = originalSample;
+  });
+
+  test("a failed preview request preserves a post cached by native scrolling", async function (assert) {
+    const model = makeTopic();
+    const last = model.postStream.posts.pop();
+    let reject;
+    const load = sinon.stub(PreviewLoader.prototype, "load").callsFake(
+      () => new Promise((_resolve, no) => { reject = no; })
+    );
+    try {
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="timeline-scrollarea"><div class="timeline-scroller">Native timeline</div></div>
+            <ConversationMap @topic={{model}} />
+          </div>
+        </template>
+      );
+      await waitFor(".conversation-map__track");
+      await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
+      await triggerKeyEvent(".conversation-map__track", "keydown", "End");
+      await waitUntil(() => load.calledOnce);
+      assert.dom(".conversation-map__status").includesText("Loading preview");
+      model.postStream.posts.push(last);
+      this.owner.lookup("service:app-events").trigger("topic:current-post-scrolled", { postIndex: 3 });
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      reject(new Error("Synthetic redundant preview failure"));
+      await waitFor(".conversation-map__byline");
+      assert.dom(".conversation-map__byline").includesText("#9", "same selection renders the independently cached post");
+      assert.dom(".conversation-map__status").doesNotExist("redundant failure does not hide cached content");
+      assert.strictEqual(load.callCount, 1, "no reselection or second request was needed");
+    } finally {
+      load.restore();
+    }
   });
 
   test("the vertical slider exposes its preview relationship and closes accessibly", async function (assert) {

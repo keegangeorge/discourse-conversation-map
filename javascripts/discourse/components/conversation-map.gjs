@@ -708,7 +708,9 @@ export default class ConversationMap extends Component {
             }
           } catch {
             if (selection === this.#selection && this.#topicId) {
-              this.failed = true;
+              // Native scrolling may have cached this post while the redundant
+              // preview request was in flight. Its failure cannot erase that.
+              this.failed = !this.#cache.has(id);
             }
           } finally {
             if (selection === this.#selection && this.#topicId) {
