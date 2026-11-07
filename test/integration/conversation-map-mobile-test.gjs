@@ -340,12 +340,12 @@ module("Integration | Component | ConversationMapMobile", function (hooks) {
       await waitFor(".conversation-map-sheet__open:not([disabled])");
       assert.dom(".conversation-map-sheet[open]").exists();
       assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", "3");
-      assert
-        .dom(".conversation-map-sheet__open")
-        .hasText("Retry opening post");
+      assert.dom(".conversation-map-sheet__open").hasText("Retry opening post");
       assert
         .dom(".conversation-map__status")
-        .hasText("This post could not be opened. Try again or choose another position.");
+        .hasText(
+          "This post could not be opened. Try again or choose another position."
+        );
       await click(".conversation-map-sheet__open");
       await waitFor(".conversation-map-sheet", { count: 0 });
       assert.strictEqual(jump.callCount, 2, "same selection navigates again");

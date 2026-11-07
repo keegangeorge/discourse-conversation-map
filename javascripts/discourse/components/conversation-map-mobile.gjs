@@ -179,11 +179,7 @@ export default class ConversationMapMobile extends Component {
           {{/if}}
           <button
             class="btn btn-primary conversation-map-sheet__open"
-            disabled={{or
-              @map.loading
-              @map.navigating
-              (not @map.preview)
-            }}
+            disabled={{or @map.loading @map.navigating (not @map.preview)}}
             type="button"
             {{on "click" @map.readPost}}
           >
