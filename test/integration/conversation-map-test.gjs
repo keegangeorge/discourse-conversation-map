@@ -258,7 +258,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
         } else {
           assert.dom(".conversation-map-sheet p.conversation-map__status").doesNotExist("old failure cannot hide a newer selection");
           assert.dom(".conversation-map-sheet__open").isNotDisabled();
-          assert.dom(".conversation-map-sheet .conversation-map__cooked").hasText(mode === "changed" ? "Opening" : "Last");
+          assert.dom(".conversation-map-sheet .conversation-map__excerpt").hasText(mode === "changed" ? "Opening" : "Last");
         }
       }
     } finally {
