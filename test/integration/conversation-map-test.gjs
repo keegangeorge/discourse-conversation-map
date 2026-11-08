@@ -234,7 +234,11 @@ module("Integration | Component | ConversationMap", function (hooks) {
           <template>
             <div class="topic-navigation">
               <button id="topic-progress" type="button">Progress</button>
-              <ConversationMap @topic={{topic}} @mobile={{true}} @active={{true}} />
+              <ConversationMap
+                @active={{true}}
+                @mobile={{true}}
+                @topic={{topic}}
+              />
             </div>
           </template>
         );
@@ -253,12 +257,18 @@ module("Integration | Component | ConversationMap", function (hooks) {
         await waitUntil(() => !find(".conversation-map-sheet .loading-icon"));
         await settled();
         if (mode === "unchanged") {
-          assert.dom(".conversation-map-sheet p.conversation-map__status").exists("current selection retains failure feedback");
+          assert
+            .dom(".conversation-map-sheet p.conversation-map__status")
+            .exists("current selection retains failure feedback");
           assert.dom(".conversation-map-sheet__open").isDisabled();
         } else {
-          assert.dom(".conversation-map-sheet p.conversation-map__status").doesNotExist("old failure cannot hide a newer selection");
+          assert
+            .dom(".conversation-map-sheet p.conversation-map__status")
+            .doesNotExist("old failure cannot hide a newer selection");
           assert.dom(".conversation-map-sheet__open").isNotDisabled();
-          assert.dom(".conversation-map-sheet .conversation-map__excerpt").hasText(mode === "changed" ? "Opening" : "Last");
+          assert
+            .dom(".conversation-map-sheet .conversation-map__excerpt")
+            .hasText(mode === "changed" ? "Opening" : "Last");
         }
       }
     } finally {
