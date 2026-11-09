@@ -371,6 +371,18 @@ module("Integration | Component | ConversationMap", function (hooks) {
           .hasAttribute("title", name);
         await focus(selector);
         assert.dom(selector).isFocused();
+        for (const key of ["Enter", " "]) {
+          const event = new KeyboardEvent("keydown", {
+            key,
+            bubbles: true,
+            cancelable: true,
+          });
+          assert.true(
+            find(selector).dispatchEvent(event),
+            `${name} leaves native ${key === " " ? "Space" : key} activation uncancelled`
+          );
+          assert.false(event.defaultPrevented);
+        }
         await click(selector);
         await waitUntil(() => jump.callCount === index + 1);
         assert.strictEqual(
