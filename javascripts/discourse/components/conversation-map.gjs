@@ -712,7 +712,9 @@ export default class ConversationMap extends Component {
             }
           } catch {
             if (selection === this.#selection && this.#topicId) {
-              this.failed = true;
+              // Native scrolling may have cached this post while the redundant
+              // preview request was in flight. Its failure cannot erase that.
+              this.failed = !this.#cache.has(id);
             }
           } finally {
             if (selection === this.#selection && this.#topicId) {
@@ -808,6 +810,9 @@ export default class ConversationMap extends Component {
       return;
     }
     const number = this.preview.number;
+    // A cached preview can survive a failed full-post navigation. An explicit
+    // retry must not require selecting a different position first.
+    this.failed = false;
     this.#rememberReturnAnchor();
     if (!this.args.mobile) {
       this.close();

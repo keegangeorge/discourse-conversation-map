@@ -35,3 +35,5 @@ en:
   mobile_landmarks: "Preview a landmark"
   mobile_hint: "Drag to preview"
   open_post: "Open post"
+  retry_open_post: "Retry opening post"
+  navigation_failed: "This post could not be opened. Try again or choose another position."
