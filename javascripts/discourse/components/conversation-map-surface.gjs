@@ -74,10 +74,10 @@ export default <template>
         style={{@map.landmarkContentStyle}}
       >
         {{#each @map.directLandmarks key="id" as |mark|}}<button
-            aria-label={{mark.label}}
+            aria-label={{mark.destinationLabel}}
             class={{dConcatClass "conversation-map__landmark" mark.kind}}
             style={{mark.style}}
-            title={{mark.label}}
+            title={{mark.destinationLabel}}
             type="button"
             {{on "click" (fn @map.selectLandmark mark.index)}}
             {{on "keydown" @map.landmarkKeydown}}
