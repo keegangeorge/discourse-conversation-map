@@ -293,22 +293,36 @@ module("Integration | Component | ConversationMap", function (hooks) {
       await render(
         <template>
           <div class="timeline-container">
-            <div class="timeline-scrollarea"><div class="timeline-scroller">Native timeline</div></div>
+            <div class="timeline-scrollarea"><div
+                class="timeline-scroller"
+              >Native timeline</div></div>
             <ConversationMap @topic={{model}} />
           </div>
         </template>
       );
       await waitFor(".conversation-map__landmark");
-      const names = ["Bookmarked, post #4", "Bookmarked, post #9", "Assigned, post #12", "Accepted answer, post #15"];
+      const names = [
+        "Bookmarked, post #4",
+        "Bookmarked, post #9",
+        "Assigned, post #12",
+        "Accepted answer, post #15",
+      ];
       assert.dom(".conversation-map__landmark").exists({ count: names.length });
       for (const [index, name] of names.entries()) {
         const selector = `.conversation-map__landmark:nth-child(${index + 1})`;
-        assert.dom(selector).hasAttribute("aria-label", name).hasAttribute("title", name);
+        assert
+          .dom(selector)
+          .hasAttribute("aria-label", name)
+          .hasAttribute("title", name);
         await focus(selector);
         assert.dom(selector).isFocused();
         await click(selector);
         await waitUntil(() => jump.callCount === index + 1);
-        assert.strictEqual(jump.lastCall.args[0], [4, 9, 12, 15][index], "the name agrees with the actual route target");
+        assert.strictEqual(
+          jump.lastCall.args[0],
+          [4, 9, 12, 15][index],
+          "the name agrees with the actual route target"
+        );
       }
       assert.strictEqual(url.callCount, names.length);
     } finally {
