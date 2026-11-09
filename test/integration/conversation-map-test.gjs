@@ -315,7 +315,8 @@ module("Integration | Component | ConversationMap", function (hooks) {
           assert
             .dom(".conversation-map-sheet p.conversation-map__status")
             .exists("current selection retains failure feedback");
-          assert.dom(".conversation-map-sheet__open").isDisabled();
+          assert.dom(".conversation-map-sheet__open").isNotDisabled();
+          assert.dom(".conversation-map-sheet__open").hasText("Retry opening post");
         } else {
           assert
             .dom(".conversation-map-sheet p.conversation-map__status")
