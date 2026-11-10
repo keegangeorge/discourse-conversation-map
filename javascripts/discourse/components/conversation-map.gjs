@@ -224,6 +224,7 @@ export default class ConversationMap extends Component {
   #selection = 0;
 
   #scrubBounds = null;
+  #scrubY = null;
 
   #scrubQueue = new ScrubQueue(
     (request, isCurrent) => this.#performNavigation(request, isCurrent),
@@ -635,6 +636,7 @@ export default class ConversationMap extends Component {
     this.#scrubQueue.cancel();
     this.#navigationRequest?.abort();
     this.#scrubBounds = event.currentTarget.getBoundingClientRect();
+    this.#scrubY = null;
     this.open();
     this.pinned = true;
     this.scrubbing = true;
@@ -659,7 +661,6 @@ export default class ConversationMap extends Component {
 
   @action
   endScrub(event) {
-    this.#captureElement = null;
     cancelAnimationFrame(this.#pointerFrame);
     this.#pointerFrame = null;
     if (this.scrubbing) {
@@ -667,6 +668,7 @@ export default class ConversationMap extends Component {
       this.scrubbing = false;
       this.#scrubBounds = null;
     }
+    this.#captureElement = null;
   }
 
   @action
@@ -887,7 +889,19 @@ export default class ConversationMap extends Component {
   }
 
   #updateScrub(event, immediate = false) {
+    // Navigation can reposition the timeline during a drag. A new vertical
+    // pointer position maps to the rail the user can actually see now.
+    // Reuse that mapping for a stationary pointer (including pointerup), so
+    // navigation-driven layout changes alone cannot change the selection.
+    if (event.clientY !== this.#scrubY) {
+      this.#scrubBounds =
+        this.#captureElement?.getBoundingClientRect() ?? this.#scrubBounds;
+      this.#scrubY = event.clientY;
+    }
     const bounds = this.#scrubBounds;
+    if (!bounds) {
+      return;
+    }
     const index = indexForPointer(
       event.clientY,
       bounds.top,
