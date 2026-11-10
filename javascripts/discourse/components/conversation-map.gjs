@@ -224,6 +224,7 @@ export default class ConversationMap extends Component {
   #selection = 0;
 
   #scrubBounds = null;
+  #restoreScrubPosition;
 
   #scrubQueue = new ScrubQueue(
     (request, isCurrent) => this.#performNavigation(request, isCurrent),
@@ -592,6 +593,7 @@ export default class ConversationMap extends Component {
 
   @action
   close() {
+    this.#clearScrubPosition();
     this.#releaseCapture();
     cancelAnimationFrame(this.#pointerFrame);
     this.#pointerFrame = null;
@@ -635,6 +637,7 @@ export default class ConversationMap extends Component {
     this.#scrubQueue.cancel();
     this.#navigationRequest?.abort();
     this.#scrubBounds = event.currentTarget.getBoundingClientRect();
+    this.#holdScrubPosition();
     this.open();
     this.pinned = true;
     this.scrubbing = true;
@@ -667,11 +670,13 @@ export default class ConversationMap extends Component {
       this.scrubbing = false;
       this.#scrubBounds = null;
     }
+    this.#clearScrubPosition();
   }
 
   @action
   cancelScrub() {
-    this.#captureElement = null;
+    this.#clearScrubPosition();
+    this.#releaseCapture();
     cancelAnimationFrame(this.#pointerFrame);
     this.#pointerFrame = null;
     this.#scrubQueue.cancel();
@@ -855,6 +860,39 @@ export default class ConversationMap extends Component {
     }
   }
 
+  #holdScrubPosition() {
+    this.#clearScrubPosition();
+    const element = this.#mapElement;
+    if (this.args.mobile || !element) {
+      return;
+    }
+    // Navigation moves the native timeline. Keep the rendered map aligned
+    // with the gesture's frozen bounds instead of moving it under the pointer.
+    const rect = element.getBoundingClientRect();
+    const style = element.getAttribute("style");
+    const rtl = getComputedStyle(element).direction === "rtl";
+    element.style.position = "fixed";
+    element.style.inset = "auto";
+    element.style.top = `${rect.top}px`;
+    element.style.height = `${rect.height}px`;
+    element.style.insetInlineStart = `${rtl ? window.innerWidth - rect.right : rect.left}px`;
+    this.#restoreScrubPosition = () => {
+      if (style === null) {
+        element.removeAttribute("style");
+      } else {
+        element.setAttribute("style", style);
+      }
+    };
+    // A changed viewport invalidates the captured viewport rectangle.
+    window.addEventListener("resize", this.cancelScrub);
+  }
+
+  #clearScrubPosition() {
+    this.#restoreScrubPosition?.();
+    this.#restoreScrubPosition = null;
+    window.removeEventListener("resize", this.cancelScrub);
+  }
+
   #releaseCapture() {
     const element = this.#captureElement;
     this.#captureElement = null;
@@ -973,6 +1011,7 @@ export default class ConversationMap extends Component {
   }
 
   #invalidate() {
+    this.#clearScrubPosition();
     this.#releaseCapture();
     this.#generation++;
     this.#selection++;
