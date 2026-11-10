@@ -60,6 +60,84 @@ module("Integration | Component | ConversationMap", function (hooks) {
     settings.sample_posts = originalSample;
   });
 
+  test("scrub motion uses the visible rail without stationary layout feedback", async function (assert) {
+    const model = makeTopic();
+    let top = 100;
+    const jump = sinon.stub(DiscourseURL, "jumpToPost").callsFake(() => {
+      top = 40;
+    });
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    const stubs = [];
+    try {
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="timeline-scrollarea"><div
+                class="timeline-scroller"
+              >Native timeline</div></div>
+            <ConversationMap @topic={{model}} />
+          </div>
+        </template>
+      );
+      await waitFor(".conversation-map__track");
+      const track = find(".conversation-map__track");
+      // The rendering test supplies geometry and capture; the VM scenario
+      // separately exercises native pointer capture and real timeline movement.
+      stubs.push(
+        sinon.stub(track, "getBoundingClientRect").callsFake(() => ({
+          top,
+          height: 200,
+        })),
+        sinon.stub(track, "setPointerCapture"),
+        sinon.stub(track, "releasePointerCapture"),
+        sinon.stub(track, "hasPointerCapture").returns(true)
+      );
+      const pointer = (type, clientY) =>
+        triggerEvent(track, type, {
+          pointerId: 7,
+          pointerType: "mouse",
+          button: 0,
+          clientY,
+        });
+      await pointer("pointerdown", 170);
+      await waitUntil(() => jump.calledOnce);
+      assert.dom(track).hasAttribute("aria-valuenow", "2");
+      assert.strictEqual(top, 40, "navigation moved the rendered rail");
+      await pointer("pointermove", 170);
+      assert
+        .dom(track)
+        .hasAttribute("aria-valuenow", "2", "stationary motion cannot remap after layout");
+      await pointer("pointermove", 239);
+      await waitUntil(() => track.getAttribute("aria-valuenow") === "3");
+      await pointer("pointerup", 239);
+      assert
+        .dom(track)
+        .hasAttribute("aria-valuenow", "3", "new motion reaches the visible bottom");
+      assert.dom(document.body).doesNotHaveClass("is-conversation-map-scrubbing");
+
+      await pointer("pointerdown", 100);
+      assert.dom(track).hasAttribute("aria-valuenow", "2");
+      await pointer("pointerup", 41);
+      assert
+        .dom(track)
+        .hasAttribute("aria-valuenow", "1", "a new release coordinate is processed before clearing capture");
+
+      await pointer("pointerdown", 100);
+      await pointer("pointercancel", 100);
+      assert.dom(document.body).doesNotHaveClass("is-conversation-map-scrubbing");
+      top = 200;
+      await pointer("pointerdown", 100);
+      assert
+        .dom(track)
+        .hasAttribute("aria-valuenow", "1", "a fresh gesture does not reuse the last gesture's mapping");
+      await pointer("pointerup", 100);
+    } finally {
+      stubs.forEach((stub) => stub.restore());
+      jump.restore();
+      url.restore();
+    }
+  });
+
   test("a failed preview request preserves a post cached by native scrolling", async function (assert) {
     const model = makeTopic();
     const last = model.postStream.posts.pop();
