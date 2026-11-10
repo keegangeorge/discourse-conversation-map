@@ -106,30 +106,50 @@ module("Integration | Component | ConversationMap", function (hooks) {
       await pointer("pointermove", 170);
       assert
         .dom(track)
-        .hasAttribute("aria-valuenow", "2", "stationary motion cannot remap after layout");
+        .hasAttribute(
+          "aria-valuenow",
+          "2",
+          "stationary motion cannot remap after layout"
+        );
       await pointer("pointermove", 239);
       await waitUntil(() => track.getAttribute("aria-valuenow") === "3");
       await pointer("pointerup", 239);
       assert
         .dom(track)
-        .hasAttribute("aria-valuenow", "3", "new motion reaches the visible bottom");
-      assert.dom(document.body).doesNotHaveClass("is-conversation-map-scrubbing");
+        .hasAttribute(
+          "aria-valuenow",
+          "3",
+          "new motion reaches the visible bottom"
+        );
+      assert
+        .dom(document.body)
+        .doesNotHaveClass("is-conversation-map-scrubbing");
 
       await pointer("pointerdown", 100);
       assert.dom(track).hasAttribute("aria-valuenow", "2");
       await pointer("pointerup", 41);
       assert
         .dom(track)
-        .hasAttribute("aria-valuenow", "1", "a new release coordinate is processed before clearing capture");
+        .hasAttribute(
+          "aria-valuenow",
+          "1",
+          "a new release coordinate is processed before clearing capture"
+        );
 
       await pointer("pointerdown", 100);
       await pointer("pointercancel", 100);
-      assert.dom(document.body).doesNotHaveClass("is-conversation-map-scrubbing");
+      assert
+        .dom(document.body)
+        .doesNotHaveClass("is-conversation-map-scrubbing");
       top = 200;
       await pointer("pointerdown", 100);
       assert
         .dom(track)
-        .hasAttribute("aria-valuenow", "1", "a fresh gesture does not reuse the last gesture's mapping");
+        .hasAttribute(
+          "aria-valuenow",
+          "1",
+          "a fresh gesture does not reuse the last gesture's mapping"
+        );
       await pointer("pointerup", 100);
     } finally {
       stubs.forEach((stub) => stub.restore());
