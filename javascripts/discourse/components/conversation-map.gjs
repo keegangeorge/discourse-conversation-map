@@ -375,6 +375,10 @@ export default class ConversationMap extends Component {
           kind,
           icon,
           label: i18n(themePrefix(kind)),
+          destinationLabel: i18n(themePrefix("landmark_destination"), {
+            label: i18n(themePrefix(kind)),
+            number,
+          }),
           style: this.positionStyle(index),
         });
       }
@@ -916,11 +920,13 @@ export default class ConversationMap extends Component {
 
   async #performNavigation(request, isCurrent) {
     const generation = this.#generation;
+    const selection = this.#selection;
     const valid = () =>
       isCurrent() &&
       generation === this.#generation &&
       this.enabled &&
       !!this.#topicId;
+    const ownsPreview = () => valid() && selection === this.#selection;
     try {
       if (request.id) {
         if (!this.#numbers.has(request.id)) {
@@ -934,13 +940,15 @@ export default class ConversationMap extends Component {
           !number ||
           !this.args.topic.postStream.stream.includes(request.id)
         ) {
-          this.failed = true;
+          if (ownsPreview()) {
+            this.failed = true;
+          }
           return false;
         }
         request = { ...request, number };
       }
       this.navigating = true;
-      const success = await this.#navigate(request, valid);
+      const success = await this.#navigate(request, valid, ownsPreview);
       if (
         success &&
         valid() &&
@@ -975,7 +983,7 @@ export default class ConversationMap extends Component {
       }
       return success;
     } catch {
-      if (valid()) {
+      if (ownsPreview()) {
         this.failed = true;
       }
       return false;
@@ -1091,7 +1099,7 @@ export default class ConversationMap extends Component {
     }
   }
 
-  async #navigate(request, isCurrent) {
+  async #navigate(request, isCurrent, ownsPreview) {
     const topic = this.args.topic;
     const stream = topic.postStream;
     try {
@@ -1149,7 +1157,9 @@ export default class ConversationMap extends Component {
       }
       return success;
     } catch {
-      if (isCurrent()) {
+      // A pending Open post may outlive a newer mobile preview selection.
+      // Its failure cannot declare that newer preview unavailable.
+      if (ownsPreview()) {
         this.failed = true;
         this.expanded = true;
         this.pinned = true;

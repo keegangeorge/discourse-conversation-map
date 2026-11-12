@@ -372,6 +372,68 @@ module("Integration | Component | ConversationMap", function (hooks) {
     }
   });
 
+  test("navigation failures belong to the preview selection that started them", async function (assert) {
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    const transform = sinon.stub(Topic, "applyTransformations");
+    try {
+      for (const mode of ["unchanged", "changed", "away-and-back"]) {
+        resetMapSessionForUrl("/latest");
+        jump.resetHistory();
+        const topic = makeTopic();
+        let reject;
+        transform.returns(new Promise((resolve, no) => (reject = no)));
+        await render(
+          <template>
+            <div class="topic-navigation">
+              <button id="topic-progress" type="button">Progress</button>
+              <ConversationMap
+                @active={{true}}
+                @mobile={{true}}
+                @topic={{topic}}
+              />
+            </div>
+          </template>
+        );
+        await waitFor(".conversation-map-sheet[open]");
+        const track = ".conversation-map-sheet .conversation-map__track";
+        await triggerKeyEvent(track, "keydown", "End");
+        find(".conversation-map-sheet__open").click();
+        await waitUntil(() => jump.calledOnce);
+        if (mode !== "unchanged") {
+          await triggerKeyEvent(track, "keydown", "Home");
+          if (mode === "away-and-back") {
+            await triggerKeyEvent(track, "keydown", "End");
+          }
+        }
+        reject(new Error("Synthetic delayed navigation failure"));
+        await waitUntil(() => !find(".conversation-map-sheet .loading-icon"));
+        await settled();
+        if (mode === "unchanged") {
+          assert
+            .dom(".conversation-map-sheet p.conversation-map__status")
+            .exists("current selection retains failure feedback");
+          assert.dom(".conversation-map-sheet__open").isNotDisabled();
+          assert
+            .dom(".conversation-map-sheet__open")
+            .hasText("Retry opening post");
+        } else {
+          assert
+            .dom(".conversation-map-sheet p.conversation-map__status")
+            .doesNotExist("old failure cannot hide a newer selection");
+          assert.dom(".conversation-map-sheet__open").isNotDisabled();
+          assert
+            .dom(".conversation-map-sheet .conversation-map__excerpt")
+            .hasText(mode === "changed" ? "Opening" : "Last");
+        }
+      }
+    } finally {
+      jump.restore();
+      url.restore();
+      transform.restore();
+    }
+  });
+
   test("desktop landmarks are direct navigation controls", async function (assert) {
     const model = makeTopic();
     model.bookmarks = [
@@ -399,8 +461,8 @@ module("Integration | Component | ConversationMap", function (hooks) {
         .dom(".conversation-map__landmark")
         .hasAttribute(
           "aria-label",
-          "Bookmarked",
-          "the marker has an accessible name"
+          "Bookmarked, post #4",
+          "the marker names its destination"
         );
       assert.false(
         find(".conversation-map__track").contains(
@@ -421,6 +483,75 @@ module("Integration | Component | ConversationMap", function (hooks) {
         );
       assert.true(jump.calledOnceWith(4), "the marker navigates to its post");
       assert.true(url.calledOnce, "the marker updates the topic URL");
+    } finally {
+      jump.restore();
+      url.restore();
+    }
+  });
+
+  test("direct landmark names identify each post without changing navigation", async function (assert) {
+    const model = makeTopic();
+    model.postStream.stream.push(113, 117);
+    model.postStream.posts.push(
+      { id: 113, post_number: 12, cooked: "<p>Assigned</p>", username: "alex" },
+      { id: 117, post_number: 15, cooked: "<p>Answer</p>", username: "sam" }
+    );
+    model.bookmarks = [
+      { bookmarkable_id: 105, bookmarkable_type: "Post", post_number: 4 },
+      { bookmarkable_id: 109, bookmarkable_type: "Post", post_number: 9 },
+    ];
+    model.indirectly_assigned_to = { 113: { post_number: 12 } };
+    model.accepted_answers = [{ id: 117, post_number: 15 }];
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    try {
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="timeline-scrollarea"><div
+                class="timeline-scroller"
+              >Native timeline</div></div>
+            <ConversationMap @topic={{model}} />
+          </div>
+        </template>
+      );
+      await waitFor(".conversation-map__landmark");
+      const names = [
+        "Bookmarked, post #4",
+        "Bookmarked, post #9",
+        "Assigned, post #12",
+        "Accepted answer, post #15",
+      ];
+      assert.dom(".conversation-map__landmark").exists({ count: names.length });
+      for (const [index, name] of names.entries()) {
+        const selector = `.conversation-map__landmark:nth-child(${index + 1})`;
+        assert
+          .dom(selector)
+          .hasAttribute("aria-label", name)
+          .hasAttribute("title", name);
+        await focus(selector);
+        assert.dom(selector).isFocused();
+        for (const key of ["Enter", " "]) {
+          const event = new KeyboardEvent("keydown", {
+            key,
+            bubbles: true,
+            cancelable: true,
+          });
+          assert.true(
+            find(selector).dispatchEvent(event),
+            `${name} leaves native ${key === " " ? "Space" : key} activation uncancelled`
+          );
+          assert.false(event.defaultPrevented);
+        }
+        await click(selector);
+        await waitUntil(() => jump.callCount === index + 1);
+        assert.strictEqual(
+          jump.lastCall.args[0],
+          [4, 9, 12, 15][index],
+          "the name agrees with the actual route target"
+        );
+      }
+      assert.strictEqual(url.callCount, names.length);
     } finally {
       jump.restore();
       url.restore();
