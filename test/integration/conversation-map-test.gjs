@@ -60,6 +60,54 @@ module("Integration | Component | ConversationMap", function (hooks) {
     settings.sample_posts = originalSample;
   });
 
+  test("held Enter opens a preview without navigating while arrow keys still repeat", async function (assert) {
+    const model = makeTopic();
+    resetMapSessionForUrl("/latest");
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    try {
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="timeline-scrollarea"><div
+                class="timeline-scroller"
+              >Native timeline</div></div>
+            <ConversationMap @topic={{model}} />
+          </div>
+        </template>
+      );
+      await waitFor(".conversation-map__track");
+      await focus(".conversation-map__track");
+      await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
+      await waitFor(".conversation-map__byline");
+      for (let repeat = 0; repeat < 3; repeat++) {
+        await triggerKeyEvent(".conversation-map__track", "keydown", "Enter", {
+          repeat: true,
+        });
+      }
+      assert.dom(".conversation-map__preview").exists("the preview stays open");
+      assert.dom(".conversation-map__track").isFocused();
+      assert.dom(".conversation-map-return").doesNotExist("no detour is created");
+      assert.false(jump.called, "holding Enter never navigates");
+      assert.false(url.called, "holding Enter does not change the URL");
+
+      await triggerKeyEvent(".conversation-map__track", "keydown", "ArrowDown");
+      await triggerKeyEvent(".conversation-map__track", "keydown", "ArrowDown", {
+        repeat: true,
+      });
+      assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", "3");
+      await waitUntil(() => find(".conversation-map__byline")?.textContent.includes("#9"));
+      await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
+      await waitUntil(() => jump.calledOnce);
+      assert.true(jump.calledOnceWith(9), "a separate Enter activates the selection");
+      assert.true(url.calledOnce, "explicit activation updates the URL");
+    } finally {
+      jump.restore();
+      url.restore();
+      resetMapSessionForUrl("/latest");
+    }
+  });
+
   test("a failed preview request preserves a post cached by native scrolling", async function (assert) {
     const model = makeTopic();
     const last = model.postStream.posts.pop();

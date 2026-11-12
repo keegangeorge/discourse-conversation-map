@@ -787,6 +787,11 @@ export default class ConversationMap extends Component {
     ) {
       event.preventDefault();
       event.stopPropagation();
+      // Holding Enter to open a preview must not also commit navigation.
+      // Directional keys still repeat so the slider remains easy to explore.
+      if (event.key === "Enter" && event.repeat) {
+        return;
+      }
       const wasOpen = this.expanded;
       this.open();
       this.pinned = true;
