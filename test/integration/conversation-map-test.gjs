@@ -274,6 +274,68 @@ module("Integration | Component | ConversationMap", function (hooks) {
     }
   });
 
+  test("navigation failures belong to the preview selection that started them", async function (assert) {
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    const transform = sinon.stub(Topic, "applyTransformations");
+    try {
+      for (const mode of ["unchanged", "changed", "away-and-back"]) {
+        resetMapSessionForUrl("/latest");
+        jump.resetHistory();
+        const topic = makeTopic();
+        let reject;
+        transform.returns(new Promise((resolve, no) => (reject = no)));
+        await render(
+          <template>
+            <div class="topic-navigation">
+              <button id="topic-progress" type="button">Progress</button>
+              <ConversationMap
+                @active={{true}}
+                @mobile={{true}}
+                @topic={{topic}}
+              />
+            </div>
+          </template>
+        );
+        await waitFor(".conversation-map-sheet[open]");
+        const track = ".conversation-map-sheet .conversation-map__track";
+        await triggerKeyEvent(track, "keydown", "End");
+        find(".conversation-map-sheet__open").click();
+        await waitUntil(() => jump.calledOnce);
+        if (mode !== "unchanged") {
+          await triggerKeyEvent(track, "keydown", "Home");
+          if (mode === "away-and-back") {
+            await triggerKeyEvent(track, "keydown", "End");
+          }
+        }
+        reject(new Error("Synthetic delayed navigation failure"));
+        await waitUntil(() => !find(".conversation-map-sheet .loading-icon"));
+        await settled();
+        if (mode === "unchanged") {
+          assert
+            .dom(".conversation-map-sheet p.conversation-map__status")
+            .exists("current selection retains failure feedback");
+          assert.dom(".conversation-map-sheet__open").isNotDisabled();
+          assert
+            .dom(".conversation-map-sheet__open")
+            .hasText("Retry opening post");
+        } else {
+          assert
+            .dom(".conversation-map-sheet p.conversation-map__status")
+            .doesNotExist("old failure cannot hide a newer selection");
+          assert.dom(".conversation-map-sheet__open").isNotDisabled();
+          assert
+            .dom(".conversation-map-sheet .conversation-map__excerpt")
+            .hasText(mode === "changed" ? "Opening" : "Last");
+        }
+      }
+    } finally {
+      jump.restore();
+      url.restore();
+      transform.restore();
+    }
+  });
+
   test("desktop landmarks are direct navigation controls", async function (assert) {
     const model = makeTopic();
     model.bookmarks = [
