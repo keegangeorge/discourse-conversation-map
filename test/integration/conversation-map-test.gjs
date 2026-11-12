@@ -87,19 +87,31 @@ module("Integration | Component | ConversationMap", function (hooks) {
       }
       assert.dom(".conversation-map__preview").exists("the preview stays open");
       assert.dom(".conversation-map__track").isFocused();
-      assert.dom(".conversation-map-return").doesNotExist("no detour is created");
+      assert
+        .dom(".conversation-map-return")
+        .doesNotExist("no detour is created");
       assert.false(jump.called, "holding Enter never navigates");
       assert.false(url.called, "holding Enter does not change the URL");
 
       await triggerKeyEvent(".conversation-map__track", "keydown", "ArrowDown");
-      await triggerKeyEvent(".conversation-map__track", "keydown", "ArrowDown", {
-        repeat: true,
-      });
+      await triggerKeyEvent(
+        ".conversation-map__track",
+        "keydown",
+        "ArrowDown",
+        {
+          repeat: true,
+        }
+      );
       assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", "3");
-      await waitUntil(() => find(".conversation-map__byline")?.textContent.includes("#9"));
+      await waitUntil(() =>
+        find(".conversation-map__byline")?.textContent.includes("#9")
+      );
       await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
       await waitUntil(() => jump.calledOnce);
-      assert.true(jump.calledOnceWith(9), "a separate Enter activates the selection");
+      assert.true(
+        jump.calledOnceWith(9),
+        "a separate Enter activates the selection"
+      );
       assert.true(url.calledOnce, "explicit activation updates the URL");
     } finally {
       jump.restore();
