@@ -13,6 +13,7 @@ en:
   saved: "Bookmarked"
   answer: "Accepted answer"
   assigned: "Assigned"
+  landmark_destination: "%{label}, post #%{number}"
   image: "Image"
   gallery:
     one: "%{count} image"

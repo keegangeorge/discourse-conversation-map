@@ -374,6 +374,10 @@ export default class ConversationMap extends Component {
           kind,
           icon,
           label: i18n(themePrefix(kind)),
+          destinationLabel: i18n(themePrefix("landmark_destination"), {
+            label: i18n(themePrefix(kind)),
+            number,
+          }),
           style: this.positionStyle(index),
         });
       }
