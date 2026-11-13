@@ -18,14 +18,19 @@
       1px 3px 0 var(--primary-low-mid);
   }
 
-  &.is-conversation-map-expanded {
-    border-color: transparent;
+  // Only replace the native timeline where the desktop map is visible.
+  // Core keeps its desktop timeline below our lg breakpoint before switching
+  // to compact progress, so a pinned (but hidden) map must not suppress it.
+  @include viewport.from(lg) {
+    &.is-conversation-map-expanded {
+      border-color: transparent;
 
-    > .timeline-padding,
-    > .timeline-scroller,
-    > .timeline-last-read {
-      visibility: hidden;
-      pointer-events: none;
+      > .timeline-padding,
+      > .timeline-scroller,
+      > .timeline-last-read {
+        visibility: hidden;
+        pointer-events: none;
+      }
     }
   }
 }
