@@ -437,7 +437,12 @@ module("Integration | Component | ConversationMap", function (hooks) {
     const url = sinon.stub(DiscourseURL, "replaceState");
     const transform = sinon.stub(Topic, "applyTransformations");
     try {
-      for (const mode of ["unchanged", "changed", "away-and-back", "dismissed"]) {
+      for (const mode of [
+        "unchanged",
+        "changed",
+        "away-and-back",
+        "dismissed",
+      ]) {
         resetMapSessionForUrl("/latest");
         jump.resetHistory();
         const topic = makeTopic();
@@ -461,7 +466,9 @@ module("Integration | Component | ConversationMap", function (hooks) {
         await waitFor(".conversation-map__excerpt");
         await triggerKeyEvent(track, "keydown", "Enter");
         await waitUntil(() => jump.calledOnce);
-        assert.dom(".conversation-map__preview").doesNotExist("navigation closes desktop preview");
+        assert
+          .dom(".conversation-map__preview")
+          .doesNotExist("navigation closes desktop preview");
         if (mode === "dismissed") {
           await triggerKeyEvent(track, "keydown", "Escape");
         } else if (mode !== "unchanged") {
@@ -472,24 +479,40 @@ module("Integration | Component | ConversationMap", function (hooks) {
         }
         reject(new Error("Synthetic delayed desktop navigation failure"));
         await settled();
+        let heldCount = null;
         if (mode === "unchanged") {
           assert.dom(track).hasAttribute("aria-valuenow", "9");
-          assert.dom("p.conversation-map__status").hasText("This post could not be opened. Try again or choose another position.");
+          assert
+            .dom("p.conversation-map__status")
+            .hasText(
+              "This post could not be opened. Try again or choose another position."
+            );
           assert.dom(track).isFocused();
           await triggerKeyEvent(track, "keydown", "Enter", { repeat: true });
-          assert.true(jump.calledOnce, "held Enter cannot retry");
+          heldCount = jump.callCount;
           transform.resolves();
           await triggerKeyEvent(track, "keydown", "Enter");
           await waitUntil(() => jump.calledTwice);
-          assert.strictEqual(jump.secondCall.args[0], 9, "distinct Enter retries the failed destination");
+
           await settled();
-          assert.dom(".conversation-map__preview").doesNotExist("successful retry stays closed");
+          assert
+            .dom(".conversation-map__preview")
+            .doesNotExist("successful retry stays closed");
         } else if (mode === "dismissed") {
-          assert.dom(".conversation-map__preview").doesNotExist("dismissal is not undone by failure");
+          assert
+            .dom(".conversation-map__preview")
+            .doesNotExist("dismissal is not undone by failure");
         } else {
-          assert.dom("p.conversation-map__status").doesNotExist("old failure cannot replace a newer preview");
-          assert.dom(".conversation-map__excerpt").hasText(mode === "changed" ? "Opening" : "Last");
+          assert
+            .dom("p.conversation-map__status")
+            .doesNotExist("old failure cannot replace a newer preview");
+          assert
+            .dom(".conversation-map__excerpt")
+            .hasText(mode === "changed" ? "Opening" : "Last");
         }
+        assert.strictEqual(heldCount, mode === "unchanged" ? 1 : null, "held Enter cannot retry");
+        assert.strictEqual(jump.callCount, mode === "unchanged" ? 2 : 1, "only a distinct retry navigates again");
+        assert.strictEqual(jump.lastCall.args[0], 9, "navigation targets the selected destination");
       }
     } finally {
       jump.restore();
