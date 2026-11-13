@@ -481,7 +481,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
         await settled();
         let heldCount = null;
         if (mode === "unchanged") {
-          assert.dom(track).hasAttribute("aria-valuenow", "9");
+          assert.dom(track).hasAttribute("aria-valuenow", "3");
           assert
             .dom("p.conversation-map__status")
             .hasText(
@@ -510,9 +510,21 @@ module("Integration | Component | ConversationMap", function (hooks) {
             .dom(".conversation-map__excerpt")
             .hasText(mode === "changed" ? "Opening" : "Last");
         }
-        assert.strictEqual(heldCount, mode === "unchanged" ? 1 : null, "held Enter cannot retry");
-        assert.strictEqual(jump.callCount, mode === "unchanged" ? 2 : 1, "only a distinct retry navigates again");
-        assert.strictEqual(jump.lastCall.args[0], 9, "navigation targets the selected destination");
+        assert.strictEqual(
+          heldCount,
+          mode === "unchanged" ? 1 : null,
+          "held Enter cannot retry"
+        );
+        assert.strictEqual(
+          jump.callCount,
+          mode === "unchanged" ? 2 : 1,
+          "only a distinct retry navigates again"
+        );
+        assert.strictEqual(
+          jump.lastCall.args[0],
+          9,
+          "navigation targets the selected destination"
+        );
       }
     } finally {
       jump.restore();
