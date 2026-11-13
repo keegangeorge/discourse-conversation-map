@@ -432,6 +432,72 @@ module("Integration | Component | ConversationMap", function (hooks) {
     }
   });
 
+  test("desktop failed navigation restores only its own preview for retry", async function (assert) {
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    const transform = sinon.stub(Topic, "applyTransformations");
+    try {
+      for (const mode of ["unchanged", "changed", "away-and-back", "dismissed"]) {
+        resetMapSessionForUrl("/latest");
+        jump.resetHistory();
+        const topic = makeTopic();
+        let reject;
+        transform.returns(new Promise((resolve, no) => (reject = no)));
+        await render(
+          <template>
+            <div class="timeline-container">
+              <div class="timeline-scrollarea"><div
+                  class="timeline-scroller"
+                >Native timeline</div></div>
+              <ConversationMap @topic={{topic}} />
+            </div>
+          </template>
+        );
+        const track = ".conversation-map__track";
+        await waitFor(track);
+        await focus(track);
+        await triggerKeyEvent(track, "keydown", "Enter");
+        await triggerKeyEvent(track, "keydown", "End");
+        await waitFor(".conversation-map__excerpt");
+        await triggerKeyEvent(track, "keydown", "Enter");
+        await waitUntil(() => jump.calledOnce);
+        assert.dom(".conversation-map__preview").doesNotExist("navigation closes desktop preview");
+        if (mode === "dismissed") {
+          await triggerKeyEvent(track, "keydown", "Escape");
+        } else if (mode !== "unchanged") {
+          await triggerKeyEvent(track, "keydown", "Home");
+          if (mode === "away-and-back") {
+            await triggerKeyEvent(track, "keydown", "End");
+          }
+        }
+        reject(new Error("Synthetic delayed desktop navigation failure"));
+        await settled();
+        if (mode === "unchanged") {
+          assert.dom(track).hasAttribute("aria-valuenow", "9");
+          assert.dom("p.conversation-map__status").hasText("This post could not be opened. Try the same position again or choose another.");
+          assert.dom(track).isFocused();
+          await triggerKeyEvent(track, "keydown", "Enter", { repeat: true });
+          assert.true(jump.calledOnce, "held Enter cannot retry");
+          transform.resolves();
+          await triggerKeyEvent(track, "keydown", "Enter");
+          await waitUntil(() => jump.calledTwice);
+          assert.strictEqual(jump.secondCall.args[0], 9, "distinct Enter retries the failed destination");
+          await settled();
+          assert.dom(".conversation-map__preview").doesNotExist("successful retry stays closed");
+        } else if (mode === "dismissed") {
+          assert.dom(".conversation-map__preview").doesNotExist("dismissal is not undone by failure");
+        } else {
+          assert.dom("p.conversation-map__status").doesNotExist("old failure cannot replace a newer preview");
+          assert.dom(".conversation-map__excerpt").hasText(mode === "changed" ? "Opening" : "Last");
+        }
+      }
+    } finally {
+      jump.restore();
+      url.restore();
+      transform.restore();
+    }
+  });
+
   test("navigation failures belong to the preview selection that started them", async function (assert) {
     const jump = sinon.stub(DiscourseURL, "jumpToPost");
     const url = sinon.stub(DiscourseURL, "replaceState");
