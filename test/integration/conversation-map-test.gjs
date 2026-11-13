@@ -474,7 +474,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
         await settled();
         if (mode === "unchanged") {
           assert.dom(track).hasAttribute("aria-valuenow", "9");
-          assert.dom("p.conversation-map__status").hasText("This post could not be opened. Try the same position again or choose another.");
+          assert.dom("p.conversation-map__status").hasText("This post could not be opened. Try again or choose another position.");
           assert.dom(track).isFocused();
           await triggerKeyEvent(track, "keydown", "Enter", { repeat: true });
           assert.true(jump.calledOnce, "held Enter cannot retry");
