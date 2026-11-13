@@ -73,6 +73,38 @@ module("Unit | Lib | conversation-map", function () {
     assert.deepEqual(post.images, [], "hidden media is excluded");
   });
 
+  test("excerpts preserve line and block boundaries without splitting inline words", function (assert) {
+    const cases = [
+      ["<p>Alpha<br>Beta</p>", "Alpha Beta"],
+      ["<p>Alpha</p><p>Beta</p>", "Alpha Beta"],
+      ["<ul><li>Alpha</li><li>Beta</li></ul>", "Alpha Beta"],
+      ["Alpha<blockquote>Beta</blockquote>Gamma", "Alpha Beta Gamma"],
+      ["<table><tr><td>Alpha</td><td>Beta</td></tr></table>", "Alpha Beta"],
+      ["<h2>Alpha</h2><div>Beta<hr>Gamma</div>", "Alpha Beta Gamma"],
+      ["<p>un<strong>break</strong><em>able</em></p>", "unbreakable"],
+      ["<p>Alpha &amp; Beta</p>", "Alpha & Beta"],
+      [
+        '<p>Alpha<br><span class="spoiler">Secret</span>Beta</p><details><summary>Hidden</summary>Secret</details>',
+        "Alpha Beta",
+      ],
+    ];
+    for (const [cooked, expected] of cases) {
+      assert.strictEqual(
+        inspectPost({ id: 1, cooked }, "http://localhost:3000").text,
+        expected,
+        cooked
+      );
+    }
+    assert.strictEqual(
+      inspectPost(
+        { id: 1, cooked: `<p>${"a".repeat(259)}<br>Beta</p>` },
+        "http://localhost:3000"
+      ).text,
+      `${"a".repeat(259)} `,
+      "the existing 260-character bound applies after separator normalization"
+    );
+  });
+
   test("remote images, missing URLs, emoji and avatars are excluded", function (assert) {
     const post = inspectPost(
       {

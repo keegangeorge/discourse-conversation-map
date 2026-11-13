@@ -233,6 +233,17 @@ export function inspectPost(post, origin, uploadBases = []) {
   doc
     .querySelectorAll("img, video, audio, pre, .meta")
     .forEach((el) => el.remove());
+  // textContent omits visual line/block boundaries. Add separators in this
+  // inert copy so adjacent words do not merge, while inline formatting stays
+  // contiguous (for example, "un<strong>break</strong>able").
+  doc
+    .querySelectorAll(
+      "br, hr, p, div, h1, h2, h3, h4, h5, h6, blockquote, ul, ol, li, dl, dt, dd, table, thead, tbody, tfoot, tr, td, th, figure, figcaption"
+    )
+    .forEach((el) => {
+      el.before(" ");
+      el.after(" ");
+    });
   const text = doc.textContent.replace(/\s+/g, " ").trim().slice(0, 260);
   return {
     id: post.id,
