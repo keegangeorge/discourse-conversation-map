@@ -167,6 +167,35 @@ export default class ConversationMap extends Component {
     };
   });
 
+  fitPreview = modifier((element) => {
+    let frame;
+    const measure = () => {
+      frame = null;
+      const available = Math.max(
+        0,
+        window.innerHeight - element.getBoundingClientRect().top - 8
+      );
+      element.style.setProperty("--map-preview-available-height", `${available}px`);
+    };
+    const schedule = () => {
+      if (frame == null) {
+        frame = requestAnimationFrame(measure);
+      }
+    };
+    const observer = new ResizeObserver(schedule);
+    observer.observe(element);
+    observer.observe(element.parentElement);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, true);
+    schedule();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", schedule, true);
+    };
+  });
+
   measureLandmarks = modifier((element) => {
     const observer = new ResizeObserver(() => {
       this.landmarkHeight = element.clientHeight;
@@ -1211,6 +1240,7 @@ export default class ConversationMap extends Component {
                 id={{this.previewId}}
                 role="dialog"
                 tabindex="-1"
+                {{this.fitPreview}}
                 {{on "keydown" this.keydown}}
               >
                 <header class="conversation-map__header"><span

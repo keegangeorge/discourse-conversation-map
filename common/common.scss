@@ -306,7 +306,11 @@
     color: var(--primary);
     cursor: auto;
     box-sizing: border-box;
-    max-height: min(560px, 72vh);
+    max-height: min(
+      560px,
+      72vh,
+      var(--map-preview-available-height, 100vh)
+    );
     overflow-y: auto;
     touch-action: pan-y;
   }

@@ -310,6 +310,53 @@ module("Integration | Component | ConversationMap", function (hooks) {
       .isFocused("focus returns to the surviving track");
   });
 
+  test("desktop preview height follows its viewport offset and stops measuring on close", async function (assert) {
+    const model = makeTopic();
+    await render(
+      <template>
+        <div class="timeline-container">
+          <div class="timeline-scrollarea"><div class="timeline-scroller">Native
+              timeline</div></div>
+          <ConversationMap @topic={{model}} />
+        </div>
+      </template>
+    );
+    await waitFor(".conversation-map__track");
+    await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
+    const preview = find(".conversation-map__preview");
+    let top = 120;
+    const rect = sinon.stub(preview, "getBoundingClientRect").callsFake(() => ({ top }));
+    const frames = () => new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))
+    );
+    try {
+      window.dispatchEvent(new Event("resize"));
+      await frames();
+      assert.strictEqual(
+        preview.style.getPropertyValue("--map-preview-available-height"),
+        `${Math.max(0, window.innerHeight - top - 8)}px`,
+        "available space accounts for the actual top and an edge gap"
+      );
+      top = 160;
+      window.dispatchEvent(new Event("scroll"));
+      await frames();
+      assert.strictEqual(
+        preview.style.getPropertyValue("--map-preview-available-height"),
+        `${Math.max(0, window.innerHeight - top - 8)}px`,
+        "scroll updates the viewport constraint"
+      );
+      await click(".conversation-map__close");
+      const calls = rect.callCount;
+      window.dispatchEvent(new Event("resize"));
+      window.dispatchEvent(new Event("scroll"));
+      await frames();
+      assert.strictEqual(rect.callCount, calls, "dismissal cancels observers and listeners");
+      assert.dom(".conversation-map__track").isFocused();
+    } finally {
+      rect.restore();
+    }
+  });
+
   test("desktop Return restores focus only when it owns focus", async function (assert) {
     const topic = makeTopic();
     const jump = sinon.stub(DiscourseURL, "jumpToPost");
