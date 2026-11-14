@@ -234,6 +234,13 @@ export default class ConversationMap extends Component {
   );
   @tracked _streamSnapshot = null;
 
+  // The core footer is absolutely positioned and reserves no space above
+  // topic actions. Keep Return in the scrollarea wrapper's normal flow so
+  // the sticky timeline includes its height when it reaches the topic end.
+  get returnTarget() {
+    return this.target?.parentElement;
+  }
+
   get landmarkLayout() {
     return layoutLandmarks(
       this.landmarks,
@@ -1255,11 +1262,17 @@ export default class ConversationMap extends Component {
           </div>
         {{/in-element}}
       {{/if}}
-      {{#if (and this.enabled this.returning)}}<button
-          class="conversation-map-return btn btn-default"
-          type="button"
-          {{on "click" this.returnToReading}}
-        >{{dIcon "arrow-rotate-left"}} {{this.returnLabel}}</button>{{/if}}
+      {{#if (and this.enabled this.returning this.returnTarget)}}
+        {{#in-element this.returnTarget insertBefore=null}}
+          <div class="conversation-map-return-row">
+            <button
+              class="conversation-map-return btn btn-default"
+              type="button"
+              {{on "click" this.returnToReading}}
+            >{{dIcon "arrow-rotate-left"}} {{this.returnLabel}}</button>
+          </div>
+        {{/in-element}}
+      {{/if}}
     {{/if}}
   </template>
 }

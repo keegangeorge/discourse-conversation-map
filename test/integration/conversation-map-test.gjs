@@ -310,6 +310,50 @@ module("Integration | Component | ConversationMap", function (hooks) {
       .isFocused("focus returns to the surviving track");
   });
 
+  test("desktop Return reserves its own row outside core footer controls", async function (assert) {
+    const topic = makeTopic();
+    resetMapSessionForUrl("/latest");
+    mapSession(topic.id).anchor = { number: 1 };
+    const jump = sinon.stub(DiscourseURL, "jumpToPost");
+    const url = sinon.stub(DiscourseURL, "replaceState");
+    try {
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="topic-timeline">
+              <div class="timeline-scrollarea-wrapper">
+                <div class="timeline-scrollarea"><div
+                    class="timeline-scroller"
+                  >Native timeline</div></div>
+                <div class="timeline-date-wrapper">Today</div>
+              </div>
+              <div class="timeline-footer-controls">
+                <button class="native-control" type="button">Native</button>
+                <ConversationMap @topic={{topic}} />
+              </div>
+            </div>
+          </div>
+        </template>
+      );
+      await waitFor(".conversation-map-return-row");
+      assert
+        .dom(".timeline-scrollarea-wrapper > .conversation-map-return-row > button")
+        .hasClass("conversation-map-return", "Return belongs to the normal-flow wrapper");
+      assert
+        .dom(".timeline-footer-controls .conversation-map-return")
+        .doesNotExist("the absolute footer cannot paint Return over topic actions");
+      assert.dom(".native-control").exists("core controls are left in place");
+      await focus(".conversation-map-return");
+      await click(".conversation-map-return");
+      await waitFor(".conversation-map-return-row", { count: 0 });
+      assert.dom(".conversation-map__track").isFocused("Return keeps focus restoration");
+      assert.dom(".native-control").exists("clearing the anchor preserves core controls");
+    } finally {
+      jump.restore();
+      url.restore();
+    }
+  });
+
   test("desktop Return restores focus only when it owns focus", async function (assert) {
     const topic = makeTopic();
     const jump = sinon.stub(DiscourseURL, "jumpToPost");

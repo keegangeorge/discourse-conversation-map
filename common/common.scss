@@ -447,6 +447,12 @@
   }
 }
 
+.conversation-map-return-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: var(--space-3);
+}
+
 .conversation-map-return {
   font-size: var(--font-down-1);
   white-space: nowrap;
@@ -454,6 +460,7 @@
 
 @include viewport.until(lg) {
   .conversation-map:not(.is-mobile),
+  .conversation-map-return-row,
   .conversation-map-return {
     display: none;
   }
