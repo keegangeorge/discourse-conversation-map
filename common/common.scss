@@ -65,9 +65,12 @@
     }
 
     .conversation-map__texture,
-    .conversation-map__landmark-controls,
-    .conversation-map__reading {
+    .conversation-map__landmark-controls {
       visibility: hidden;
+    }
+
+    .conversation-map__reading {
+      display: none;
     }
 
     .conversation-map__track {
@@ -445,6 +448,11 @@
       transition: box-shadow 180ms ease-out;
     }
   }
+}
+
+.timeline-footer-controls:has(.conversation-map-return) {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
 }
 
 .conversation-map-return {
