@@ -175,7 +175,10 @@ export default class ConversationMap extends Component {
         0,
         window.innerHeight - element.getBoundingClientRect().top - 8
       );
-      element.style.setProperty("--map-preview-available-height", `${available}px`);
+      element.style.setProperty(
+        "--map-preview-available-height",
+        `${available}px`
+      );
     };
     const schedule = () => {
       if (frame == null) {

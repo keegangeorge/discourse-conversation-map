@@ -325,10 +325,13 @@ module("Integration | Component | ConversationMap", function (hooks) {
     await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
     const preview = find(".conversation-map__preview");
     let top = 120;
-    const rect = sinon.stub(preview, "getBoundingClientRect").callsFake(() => ({ top }));
-    const frames = () => new Promise((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(resolve))
-    );
+    const rect = sinon
+      .stub(preview, "getBoundingClientRect")
+      .callsFake(() => ({ top }));
+    const frames = () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))
+      );
     try {
       window.dispatchEvent(new Event("resize"));
       await frames();
@@ -350,7 +353,11 @@ module("Integration | Component | ConversationMap", function (hooks) {
       window.dispatchEvent(new Event("resize"));
       window.dispatchEvent(new Event("scroll"));
       await frames();
-      assert.strictEqual(rect.callCount, calls, "dismissal cancels observers and listeners");
+      assert.strictEqual(
+        rect.callCount,
+        calls,
+        "dismissal cancels observers and listeners"
+      );
       assert.dom(".conversation-map__track").isFocused();
     } finally {
       rect.restore();
