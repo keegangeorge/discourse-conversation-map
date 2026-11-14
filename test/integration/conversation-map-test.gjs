@@ -337,17 +337,28 @@ module("Integration | Component | ConversationMap", function (hooks) {
       );
       await waitFor(".conversation-map-return-row");
       assert
-        .dom(".timeline-scrollarea-wrapper > .conversation-map-return-row > button")
-        .hasClass("conversation-map-return", "Return belongs to the normal-flow wrapper");
+        .dom(
+          ".timeline-scrollarea-wrapper > .conversation-map-return-row > button"
+        )
+        .hasClass(
+          "conversation-map-return",
+          "Return belongs to the normal-flow wrapper"
+        );
       assert
         .dom(".timeline-footer-controls .conversation-map-return")
-        .doesNotExist("the absolute footer cannot paint Return over topic actions");
+        .doesNotExist(
+          "the absolute footer cannot paint Return over topic actions"
+        );
       assert.dom(".native-control").exists("core controls are left in place");
       await focus(".conversation-map-return");
       await click(".conversation-map-return");
       await waitFor(".conversation-map-return-row", { count: 0 });
-      assert.dom(".conversation-map__track").isFocused("Return keeps focus restoration");
-      assert.dom(".native-control").exists("clearing the anchor preserves core controls");
+      assert
+        .dom(".conversation-map__track")
+        .isFocused("Return keeps focus restoration");
+      assert
+        .dom(".native-control")
+        .exists("clearing the anchor preserves core controls");
     } finally {
       jump.restore();
       url.restore();
