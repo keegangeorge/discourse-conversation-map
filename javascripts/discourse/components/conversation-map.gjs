@@ -849,6 +849,9 @@ export default class ConversationMap extends Component {
       return;
     }
     const number = this.preview.number;
+    const previewSelection = !this.args.mobile
+      ? { stream: [...this.stream], index: this.selectedIndex }
+      : null;
     // A cached preview can survive a failed full-post navigation. An explicit
     // retry must not require selecting a different position first.
     this.failed = false;
@@ -856,7 +859,7 @@ export default class ConversationMap extends Component {
     if (!this.args.mobile) {
       this.close();
     }
-    this.#scrubQueue.request({ number }, true);
+    this.#scrubQueue.request({ number, previewSelection }, true);
   }
 
   @action
@@ -1197,6 +1200,12 @@ export default class ConversationMap extends Component {
       // A pending Open post may outlive a newer mobile preview selection.
       // Its failure cannot declare that newer preview unavailable.
       if (ownsPreview()) {
+        // Desktop closes before navigating. Restore only the failed request's
+        // selection, never one superseded by a new selection or dismissal.
+        if (request.previewSelection) {
+          this._streamSnapshot = request.previewSelection.stream;
+          this.selectedIndex = request.previewSelection.index;
+        }
         this.failed = true;
         this.expanded = true;
         this.pinned = true;
