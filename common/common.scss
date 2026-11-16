@@ -455,9 +455,10 @@
   }
 }
 
-.timeline-footer-controls:has(.conversation-map-return) {
-  inset-inline-start: auto;
-  inset-inline-end: 0;
+.conversation-map-return-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: var(--space-3);
 }
 
 .conversation-map-return {
@@ -467,6 +468,7 @@
 
 @include viewport.until(lg) {
   .conversation-map:not(.is-mobile),
+  .conversation-map-return-row,
   .conversation-map-return {
     display: none;
   }
