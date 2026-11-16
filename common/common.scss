@@ -65,9 +65,12 @@
     }
 
     .conversation-map__texture,
-    .conversation-map__landmark-controls,
-    .conversation-map__reading {
+    .conversation-map__landmark-controls {
       visibility: hidden;
+    }
+
+    .conversation-map__reading {
+      display: none;
     }
 
     .conversation-map__track {
@@ -187,7 +190,7 @@
     inset-inline-start: auto;
     inset-inline-end: 0;
     width: max-content;
-    top: -36px !important;
+    top: 0 !important;
     height: auto !important;
     padding: 3px 6px;
     border-radius: 4px;
@@ -202,7 +205,12 @@
   }
 
   &.is-expanded:not(.is-mobile) &__track {
+    inset-block-start: 40px;
     inset-inline-end: 42px;
+  }
+
+  &.is-expanded:not(.is-mobile) &__landmark-controls {
+    inset-block-start: 40px;
   }
 
   &__landmark-controls {
@@ -445,6 +453,11 @@
       transition: box-shadow 180ms ease-out;
     }
   }
+}
+
+.timeline-footer-controls:has(.conversation-map-return) {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
 }
 
 .conversation-map-return {
