@@ -272,6 +272,53 @@ module("Integration | Component | ConversationMap", function (hooks) {
     }
   });
 
+  test("native scrolling recovers an already failed preview without reselection", async function (assert) {
+    const model = makeTopic();
+    const last = model.postStream.posts.pop();
+    let reject;
+    const load = sinon.stub(PreviewLoader.prototype, "load").callsFake(
+      () =>
+        new Promise((_resolve, no) => {
+          reject = no;
+        })
+    );
+    try {
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="timeline-scrollarea"><div
+                class="timeline-scroller"
+              >Native timeline</div></div>
+            <ConversationMap @topic={{model}} />
+          </div>
+        </template>
+      );
+      const track = ".conversation-map__track";
+      await waitFor(track);
+      await triggerKeyEvent(track, "keydown", "Enter");
+      await triggerKeyEvent(track, "keydown", "End");
+      await waitUntil(() => load.calledOnce);
+      reject(new Error("Synthetic preview failure before native load"));
+      await waitFor("p.conversation-map__status");
+      assert.dom("p.conversation-map__status").includesText("preview is unavailable");
+      // A changed, unrelated post cannot hide the selected post's failure.
+      model.postStream.posts[0].cooked = "<p>Updated opening</p>";
+      this.owner.lookup("service:app-events").trigger("topic:current-post-scrolled", { postIndex: 1 });
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      assert.dom("p.conversation-map__status").includesText("preview is unavailable");
+      model.postStream.posts.push(last);
+      this.owner.lookup("service:app-events").trigger("topic:current-post-scrolled", { postIndex: 3 });
+      await waitFor(".conversation-map__byline");
+      assert.dom(".conversation-map__byline").includesText("#9");
+      assert.dom(".conversation-map__excerpt").hasText("Last");
+      assert.dom(".conversation-map__status").doesNotExist();
+      assert.dom(track).hasAttribute("aria-valuenow", "3");
+      assert.strictEqual(load.callCount, 1, "no reselection or second request was needed");
+    } finally {
+      load.restore();
+    }
+  });
+
   test("the vertical slider exposes its preview relationship and closes accessibly", async function (assert) {
     const model = makeTopic();
     await render(
@@ -542,6 +589,10 @@ module("Integration | Component | ConversationMap", function (hooks) {
             .hasText(
               "This post could not be opened. Try again or choose another position."
             );
+          topic.postStream.posts[2].cooked = "<p>Native refreshed last post</p>";
+          this.owner.lookup("service:app-events").trigger("topic:current-post-scrolled", { postIndex: 3 });
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          assert.dom("p.conversation-map__status").includesText("This post could not be opened", "cache refresh must not erase navigation failure");
           assert.dom(track).isFocused();
           await triggerKeyEvent(track, "keydown", "Enter", { repeat: true });
           heldCount = jump.callCount;
