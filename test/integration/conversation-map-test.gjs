@@ -292,8 +292,8 @@ module("Integration | Component | ConversationMap", function (hooks) {
                   class="timeline-scroller"
                 >Native timeline</div></div>
               <div class="topic-navigation"><ConversationMap
-                  @mobile={{mobile}}
                   @active={{mobile}}
+                  @mobile={{mobile}}
                   @topic={{model}}
                 /></div>
             </div>
