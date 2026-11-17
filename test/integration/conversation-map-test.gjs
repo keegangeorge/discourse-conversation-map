@@ -327,19 +327,34 @@ module("Integration | Component | ConversationMap", function (hooks) {
     const trackFocus = sinon.spy(find(".conversation-map__track"), "focus");
     try {
       await triggerEvent(".timeline-neighbor", "pointerdown", { button: 0 });
-      assert.dom(".conversation-map__preview").exists("the timeline safe region stays open");
+      assert
+        .dom(".conversation-map__preview")
+        .exists("the timeline safe region stays open");
       await triggerEvent(".outside-control", "pointerdown", { button: 2 });
-      assert.dom(".conversation-map__preview").exists("secondary pointers do not dismiss");
+      assert
+        .dom(".conversation-map__preview")
+        .exists("secondary pointers do not dismiss");
       await triggerEvent(".outside-control", "pointerdown", { button: 0 });
-      assert.dom(".conversation-map__preview").doesNotExist("primary outside pointer dismisses");
-      assert.false(trackFocus.called, "outside dismissal does not focus the slider");
+      assert
+        .dom(".conversation-map__preview")
+        .doesNotExist("primary outside pointer dismisses");
+      assert.false(
+        trackFocus.called,
+        "outside dismissal does not focus the slider"
+      );
       await focus(".outside-control");
       await click(".outside-control");
-      assert.dom(".outside-control").isFocused("the outside control keeps native focus");
+      assert
+        .dom(".outside-control")
+        .isFocused("the outside control keeps native focus");
       await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
-      assert.dom(".conversation-map__preview").exists("a dismissed preview can reopen");
+      assert
+        .dom(".conversation-map__preview")
+        .exists("a dismissed preview can reopen");
       await triggerKeyEvent(".conversation-map__track", "keydown", "Escape");
-      assert.dom(".conversation-map__preview").doesNotExist("ordinary Escape still dismisses");
+      assert
+        .dom(".conversation-map__preview")
+        .doesNotExist("ordinary Escape still dismisses");
     } finally {
       trackFocus.restore();
     }
