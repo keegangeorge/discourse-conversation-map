@@ -1,6 +1,5 @@
 import dLoadingSpinner from "discourse/ui-kit/helpers/d-loading-spinner";
 import { i18n } from "discourse-i18n";
-
 import ConversationMapImage from "./conversation-map-image.gjs";
 
 export default <template>

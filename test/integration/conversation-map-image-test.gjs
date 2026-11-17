@@ -16,7 +16,9 @@ module("Integration | Component | ConversationMapImage", function (hooks) {
       ],
       alt: "A preserved photo description",
     };
-    await render(<template><ConversationMapImage @image={{image}} /></template>);
+    await render(
+      <template><ConversationMapImage @image={{image}} /></template>
+    );
     assert.dom("img").hasAttribute("src", image.url);
     assert.dom("img").hasAttribute("alt", image.alt);
     await triggerEvent("img", "error");
@@ -29,7 +31,8 @@ module("Integration | Component | ConversationMapImage", function (hooks) {
 
   test("new image arguments reset failure state even when the preferred URL is reused", async function (assert) {
     class Fixture {
-      @tracked image = {
+      @tracked
+      image = {
         url: "/images/discourse-logo-sketch.png?reused",
         alt: "First post",
       };
