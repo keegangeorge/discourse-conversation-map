@@ -316,7 +316,10 @@ module("Integration | Component | ConversationMap", function (hooks) {
       <template>
         <button class="outside-control" type="button">Outside</button>
         <div class="timeline-container">
-          <button class="timeline-neighbor" type="button">Timeline</button>
+          <div class="timeline-scrollarea">
+            <div class="timeline-scroller">Native timeline</div>
+            <button class="timeline-neighbor" type="button">Timeline</button>
+          </div>
           <ConversationMap @topic={{model}} />
         </div>
       </template>
