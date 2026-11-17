@@ -307,8 +307,8 @@ module("Unit | Lib | conversation-map", function () {
     const duplicate = inspectPost({ id: 1, cooked: img + img }, origin);
     assert.deepEqual(
       duplicate.images,
-      [{ url: origin + "/local.png", alt: "" }],
-      "one accepted candidate per img, duplicates do not trigger another fallback"
+      [{ url: origin + "/local.png", alt: "", fallbacks: [origin + "/src.png"] }],
+      "one thumbnail per img; duplicate markup does not add thumbnails or candidates"
     );
   });
 

@@ -21,11 +21,11 @@ module("Integration | Component | ConversationMapImage", function (hooks) {
     );
     assert.dom("img").hasAttribute("src", image.url);
     assert.dom("img").hasAttribute("alt", image.alt);
-    await triggerEvent("img", "error");
+    await triggerEvent("img", "error", { bubbles: false });
     assert.dom("img").hasAttribute("src", image.fallbacks[0]);
-    await triggerEvent("img", "error");
+    await triggerEvent("img", "error", { bubbles: false });
     assert.dom("img").hasAttribute("src", image.fallbacks[1]);
-    await triggerEvent("img", "error");
+    await triggerEvent("img", "error", { bubbles: false });
     assert.dom("img").doesNotExist("exhaustion never leaves a broken icon");
   });
 
@@ -41,7 +41,7 @@ module("Integration | Component | ConversationMapImage", function (hooks) {
     await render(
       <template><ConversationMapImage @image={{fixture.image}} /></template>
     );
-    await triggerEvent("img", "error");
+    await triggerEvent("img", "error", { bubbles: false });
     assert.dom("img").doesNotExist();
     fixture.image = {
       url: "/images/discourse-logo-sketch.png?reused",
