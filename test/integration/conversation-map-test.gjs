@@ -273,6 +273,8 @@ module("Integration | Component | ConversationMap", function (hooks) {
   });
 
   test("native scrolling recovers an already failed preview without reselection", async function (assert) {
+    for (const mobile of [false, true]) {
+    resetMapSessionForUrl("/latest");
     const model = makeTopic();
     const last = model.postStream.posts.pop();
     let reject;
@@ -289,13 +291,15 @@ module("Integration | Component | ConversationMap", function (hooks) {
             <div class="timeline-scrollarea"><div
                 class="timeline-scroller"
               >Native timeline</div></div>
-            <ConversationMap @topic={{model}} />
+            <div class="topic-navigation"><ConversationMap @mobile={{mobile}} @active={{mobile}} @topic={{model}} /></div>
           </div>
         </template>
       );
       const track = ".conversation-map__track";
       await waitFor(track);
-      await triggerKeyEvent(track, "keydown", "Enter");
+      if (!mobile) {
+        await triggerKeyEvent(track, "keydown", "Enter");
+      }
       await triggerKeyEvent(track, "keydown", "End");
       await waitUntil(() => load.calledOnce);
       reject(new Error("Synthetic preview failure before native load"));
@@ -323,6 +327,9 @@ module("Integration | Component | ConversationMap", function (hooks) {
       assert.dom(".conversation-map__excerpt").hasText("Last");
       assert.dom(".conversation-map__status").doesNotExist();
       assert.dom(track).hasAttribute("aria-valuenow", "3");
+      if (mobile) {
+        assert.dom(".conversation-map-sheet__open").isNotDisabled().hasText("Open post");
+      }
       assert.strictEqual(
         load.callCount,
         1,
@@ -330,6 +337,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
       );
     } finally {
       load.restore();
+    }
     }
   });
 
@@ -704,6 +712,10 @@ module("Integration | Component | ConversationMap", function (hooks) {
           assert
             .dom(".conversation-map-sheet p.conversation-map__status")
             .exists("current selection retains failure feedback");
+          topic.postStream.posts[2].cooked = "<p>Native refreshed last post</p>";
+          this.owner.lookup("service:app-events").trigger("topic:current-post-scrolled", { postIndex: 3 });
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          assert.dom(".conversation-map-sheet p.conversation-map__status").includesText("This post could not be opened", "native cache refresh preserves navigation feedback");
           assert.dom(".conversation-map-sheet__open").isNotDisabled();
           assert
             .dom(".conversation-map-sheet__open")
