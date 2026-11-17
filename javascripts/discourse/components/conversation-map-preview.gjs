@@ -1,6 +1,8 @@
 import dLoadingSpinner from "discourse/ui-kit/helpers/d-loading-spinner";
 import { i18n } from "discourse-i18n";
 
+import ConversationMapImage from "./conversation-map-image.gjs";
+
 export default <template>
   <div
     aria-busy={{if @map.loading "true" "false"}}
@@ -21,9 +23,8 @@ export default <template>
           {{@map.previewDate}}</span></div>
       {{#if @map.preview.images.length}}<div
           class="conversation-map__photos"
-        >{{#each @map.preview.images as |image|}}<img
-              alt={{image.alt}}
-              src={{image.url}}
+        >{{#each @map.preview.images as |image|}}<ConversationMapImage
+              @image={{image}}
             />{{/each}}</div>{{/if}}
       <p class="conversation-map__excerpt">{{@map.preview.text}}</p>
 

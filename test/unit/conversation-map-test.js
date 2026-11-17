@@ -195,11 +195,45 @@ module("Unit | Lib | conversation-map", function () {
         origin
       );
       assert.deepEqual(
-        post.images,
+        post.images.map(({ url, alt }) => ({ url, alt })),
         [{ url: origin + expected, alt: "Photo" }],
         srcset || "empty srcset"
       );
     }
+  });
+
+  test("runtime image fallbacks retain only distinct trusted candidates in preference order", function (assert) {
+    const post = inspectPost(
+      {
+        id: 1,
+        cooked:
+          '<img width="690" alt="Photo" src="/original.png" srcset="/small.png 100w, /preferred.png 400w, /preferred.png 500w, https://remote.example/tracker.png 600w, /large.png 800w">',
+      },
+      "https://forum.example"
+    );
+    assert.deepEqual(post.images, [
+      {
+        url: "https://forum.example/preferred.png",
+        alt: "Photo",
+        fallbacks: [
+          "https://forum.example/small.png",
+          "https://forum.example/large.png",
+          "https://forum.example/original.png",
+        ],
+      },
+    ]);
+    assert.deepEqual(
+      inspectPost(
+        {
+          id: 2,
+          cooked:
+            '<img src="/same.png" srcset="/same.png 400w, javascript:alert(1) 800w">',
+        },
+        "https://forum.example"
+      ).images,
+      [{ url: "https://forum.example/same.png", alt: "" }],
+      "duplicate and unsafe candidates never become fallback requests"
+    );
   });
 
   test("commas within unsafe srcset URLs never become local candidates", function (assert) {

@@ -212,19 +212,21 @@ export function inspectPost(post, origin, uploadBases = []) {
           .map((candidate) => candidate.url),
         img.getAttribute("src"),
       ];
-      for (const source of sources) {
-        if (!source) {
-          continue;
+      const urls = [
+        ...new Set(
+          sources
+            .filter(Boolean)
+            .map((source) => trustedImageURL(source, origin, uploadBases)?.href)
+            .filter(Boolean)
+        ),
+      ];
+      const [url, ...fallbacks] = urls;
+      if (url && !images.some((image) => image.url === url)) {
+        const image = { url, alt: img.getAttribute("alt") || "" };
+        if (fallbacks.length) {
+          image.fallbacks = fallbacks;
         }
-        const url = trustedImageURL(source, origin, uploadBases);
-        if (!url) {
-          continue;
-        }
-        if (!images.some((image) => image.url === url.href)) {
-          images.push({ url: url.href, alt: img.getAttribute("alt") || "" });
-        }
-        // Each img contributes at most one thumbnail, even if it is a duplicate.
-        break;
+        images.push(image);
       }
     }
   }
