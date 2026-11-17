@@ -48,7 +48,8 @@ export default class ConversationMap extends Component {
   @tracked visibleCount = 1;
   @tracked revision = 0;
   @tracked loading = false;
-  @tracked failed = false;
+  @tracked previewFailed = false;
+  @tracked navigationFailed = false;
   @tracked returning = null;
   @tracked lastReadId = null;
   previewId = `conversation-map-preview-${++mapSequence}`;
@@ -487,6 +488,12 @@ export default class ConversationMap extends Component {
       });
   }
 
+  get failed() {
+    // Native scrolling can supply a preview after its own request has failed.
+    // That recovery must not hide a separate full-post navigation failure.
+    return this.navigationFailed || (this.previewFailed && !this.preview);
+  }
+
   get preview() {
     return this.inspectedPosts.find(
       (post) => post.id === this.stream[this.selectedIndex]
@@ -734,7 +741,8 @@ export default class ConversationMap extends Component {
     const direction =
       Math.sign(index - (this.selectedIndex ?? this.currentIndex)) || 1;
     this.selectedIndex = index;
-    this.failed = false;
+    this.previewFailed = false;
+    this.navigationFailed = false;
     clearTimeout(this.#previewTimer);
     const selection = ++this.#selection;
     const id = this.stream[index];
@@ -748,14 +756,14 @@ export default class ConversationMap extends Component {
               .filter(Boolean);
             await this.#fetch([id], true);
             if (selection === this.#selection && this.#topicId) {
-              this.failed = !this.#cache.has(id);
+              this.previewFailed = !this.#cache.has(id);
               this.#fetch(nearby).catch(() => {});
             }
           } catch {
             if (selection === this.#selection && this.#topicId) {
               // Native scrolling may have cached this post while the redundant
               // preview request was in flight. Its failure cannot erase that.
-              this.failed = !this.#cache.has(id);
+              this.previewFailed = !this.#cache.has(id);
             }
           } finally {
             if (selection === this.#selection && this.#topicId) {
@@ -861,7 +869,7 @@ export default class ConversationMap extends Component {
       : null;
     // A cached preview can survive a failed full-post navigation. An explicit
     // retry must not require selecting a different position first.
-    this.failed = false;
+    this.navigationFailed = false;
     this.#rememberReturnAnchor();
     if (!this.args.mobile) {
       this.close();
@@ -988,7 +996,7 @@ export default class ConversationMap extends Component {
           !this.args.topic.postStream.stream.includes(request.id)
         ) {
           if (ownsPreview()) {
-            this.failed = true;
+            this.navigationFailed = true;
           }
           return false;
         }
@@ -1031,7 +1039,7 @@ export default class ConversationMap extends Component {
       return success;
     } catch {
       if (ownsPreview()) {
-        this.failed = true;
+        this.navigationFailed = true;
       }
       return false;
     } finally {
@@ -1213,7 +1221,7 @@ export default class ConversationMap extends Component {
           this._streamSnapshot = request.previewSelection.stream;
           this.selectedIndex = request.previewSelection.index;
         }
-        this.failed = true;
+        this.navigationFailed = true;
         this.expanded = true;
         this.pinned = true;
       }
