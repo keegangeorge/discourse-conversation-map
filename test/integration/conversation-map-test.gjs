@@ -386,6 +386,59 @@ module("Integration | Component | ConversationMap", function (hooks) {
       .isFocused("focus returns to the surviving track");
   });
 
+  test("outside primary pointers dismiss a pinned preview without stealing focus", async function (assert) {
+    const model = makeTopic();
+    await render(
+      <template>
+        <button class="outside-control" type="button">Outside</button>
+        <div class="timeline-container">
+          <div class="timeline-scrollarea">
+            <div class="timeline-scroller">Native timeline</div>
+            <button class="timeline-neighbor" type="button">Timeline</button>
+          </div>
+          <ConversationMap @topic={{model}} />
+        </div>
+      </template>
+    );
+    await waitFor(".conversation-map__track");
+    await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
+    await focus(".conversation-map__close");
+    const trackFocus = sinon.spy(find(".conversation-map__track"), "focus");
+    try {
+      await triggerEvent(".timeline-neighbor", "pointerdown", { button: 0 });
+      assert
+        .dom(".conversation-map__preview")
+        .exists("the timeline safe region stays open");
+      await triggerEvent(".outside-control", "pointerdown", { button: 2 });
+      assert
+        .dom(".conversation-map__preview")
+        .exists("secondary pointers do not dismiss");
+      await triggerEvent(".outside-control", "pointerdown", { button: 0 });
+      assert
+        .dom(".conversation-map__preview")
+        .doesNotExist("primary outside pointer dismisses");
+      assert.false(
+        trackFocus.called,
+        "outside dismissal does not focus the slider"
+      );
+      await focus(".outside-control");
+      await click(".outside-control");
+      assert
+        .dom(".outside-control")
+        .isFocused("the outside control keeps native focus");
+      await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
+      assert
+        .dom(".conversation-map__preview")
+        .exists("a dismissed preview can reopen");
+      await triggerKeyEvent(".conversation-map__track", "keydown", "Escape");
+      assert
+        .dom(".conversation-map__preview")
+        .doesNotExist("ordinary Escape still dismisses");
+    } finally {
+      trackFocus.restore();
+    }
+  });
+
   test("desktop preview height follows its viewport offset and stops measuring on close", async function (assert) {
     const model = makeTopic();
     await render(

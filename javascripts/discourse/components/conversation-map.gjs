@@ -155,11 +155,13 @@ export default class ConversationMap extends Component {
     parent.addEventListener("pointerleave", this.leave);
     element.addEventListener("focusin", this.focusEntered);
     element.addEventListener("focusout", this.focusLeft);
+    document.addEventListener("pointerdown", this.dismissOutside);
     return () => {
       parent.removeEventListener("pointerenter", this.enter);
       parent.removeEventListener("pointerleave", this.leave);
       element.removeEventListener("focusin", this.focusEntered);
       element.removeEventListener("focusout", this.focusLeft);
+      document.removeEventListener("pointerdown", this.dismissOutside);
       this.#mapElement = null;
       parent.classList.remove(
         "has-conversation-map",
@@ -642,13 +644,31 @@ export default class ConversationMap extends Component {
   }
 
   @action
-  close() {
+  dismissOutside(event) {
+    if (
+      this.args.mobile ||
+      !this.expanded ||
+      this.scrubbing ||
+      event.button !== 0 ||
+      this.#mapElement?.parentElement.contains(event.target)
+    ) {
+      return;
+    }
+    // Keep the timeline's near-map safe region. Elsewhere, let the pointer
+    // target receive its ordinary focus and activation without a slider detour.
+    this.close({ restoreFocus: false });
+  }
+
+  @action
+  close({ restoreFocus = true } = {}) {
     this.#releaseCapture();
     cancelAnimationFrame(this.#pointerFrame);
     this.#pointerFrame = null;
-    const restoreFocus = this.#mapElement
-      ?.querySelector(".conversation-map__preview")
-      ?.contains(document.activeElement);
+    const shouldRestoreFocus =
+      restoreFocus &&
+      this.#mapElement
+        ?.querySelector(".conversation-map__preview")
+        ?.contains(document.activeElement);
     this.#clearTimers();
     this.#scrubQueue.cancel();
     this.#navigationRequest?.abort();
@@ -661,7 +681,7 @@ export default class ConversationMap extends Component {
     this._streamSnapshot = null;
     this.selectedIndex = null;
     this.#selection++;
-    if (restoreFocus) {
+    if (shouldRestoreFocus) {
       this.target
         ?.querySelector(".conversation-map__track")
         ?.focus({ preventScroll: true });
