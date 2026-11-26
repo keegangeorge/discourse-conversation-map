@@ -13,6 +13,7 @@ import {
 import { module, test } from "qunit";
 import sinon from "sinon";
 import DiscourseURL from "discourse/lib/url";
+import { autoTrackedArray } from "discourse/lib/tracked-tools";
 import Topic from "discourse/models/topic";
 import { setupRenderingTest } from "discourse/tests/helpers/component-test";
 import ConversationMap from "../../discourse/components/conversation-map.gjs";
@@ -24,7 +25,7 @@ import PreviewLoader from "../../discourse/lib/preview-loader.js";
 
 class StreamFixture {
   @tracked streamFilters = {};
-  stream = [101, 105, 109];
+  @autoTrackedArray stream = [101, 105, 109];
   posts = [
     { id: 101, post_number: 1, cooked: "<p>Opening</p>", username: "sam" },
     { id: 105, post_number: 4, cooked: "<p>Middle</p>", username: "alex" },
@@ -1256,6 +1257,74 @@ module("Integration | Component | ConversationMap", function (hooks) {
       .dom(".conversation-map__byline")
       .includesText("#9", "the preview still identifies the real post number");
   });
+  test("reopening resolves the native reading post against the changed live stream", async function (assert) {
+    const model = makeTopic();
+    model.current_post_number = 4;
+    model.postStream.stream.push(110);
+    model.postStream.posts.push({
+      id: 110,
+      post_number: 10,
+      cooked: "<p>Following reply</p>",
+      username: "sam",
+    });
+    await render(
+      <template>
+        <div class="timeline-container"><div
+            class="timeline-scrollarea"
+          ></div><ConversationMap @topic={{model}} /></div>
+      </template>
+    );
+    await waitFor(".conversation-map__track");
+    await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
+    assert.dom(".conversation-map__byline").includesText("#4");
+    model.postStream.stream.splice(0, 1);
+    this.owner.lookup("service:app-events").trigger("topic:current-post-scrolled", {
+      postIndex: 2,
+      percent: 0.5,
+    });
+    await waitUntil(() =>
+      find(".conversation-map__footer").textContent.includes("#9")
+    );
+    assert.dom(".conversation-map__byline").includesText("#4", "the pinned preview retains its snapshot");
+    await triggerKeyEvent(".conversation-map__track", "keydown", "Escape");
+    assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", "2", "the live reading ordinal follows post identity");
+    await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
+    assert.dom(".conversation-map__byline").includesText("#9", "reopening previews the native reading post, not its old ordinal");
+  });
+
+  test("closed reading identity survives in-place removal and same-length stream changes", async function (assert) {
+    const model = makeTopic();
+    model.current_post_number = 4;
+    await render(
+      <template>
+        <div class="timeline-container"><div
+            class="timeline-scrollarea"
+          ></div><ConversationMap @topic={{model}} /></div>
+      </template>
+    );
+    await waitFor(".conversation-map__track");
+    assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", "2");
+    model.postStream.stream.splice(0, 1);
+    await settled();
+    assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", "1");
+    model.postStream.stream = [109, 105];
+    await settled();
+    assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", "2", "array replacement and reordering resolve the same ID");
+    await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
+    assert.dom(".conversation-map__byline").includesText("#4");
+    await triggerKeyEvent(".conversation-map__track", "keydown", "Escape");
+    model.postStream.stream = [101, 109];
+    await settled();
+    assert.dom(".conversation-map__track").hasAttribute("aria-valuenow", "2", "a missing reading ID retains a bounded fallback until the next native update");
+    this.owner.lookup("service:app-events").trigger("topic:current-post-scrolled", {
+      postIndex: 1,
+      percent: 0,
+    });
+    await waitUntil(() => find(".conversation-map__track").getAttribute("aria-valuenow") === "1");
+    await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
+    assert.dom(".conversation-map__byline").includesText("#1", "the next authoritative update replaces a missing reading anchor");
+  });
+
   test("a topic change cancels old measurements without disabling new scroll updates", async function (assert) {
     const model = tracked(makeTopic());
     await render(

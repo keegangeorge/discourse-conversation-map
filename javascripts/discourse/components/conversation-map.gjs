@@ -44,7 +44,8 @@ export default class ConversationMap extends Component {
   @tracked scrubbing = false;
   @tracked selectedIndex = null;
   @tracked currentNumber = 1;
-  @tracked currentIndex = 0;
+  @tracked currentId = null;
+  @tracked readingIndex = 0;
   @tracked visibleCount = 1;
   @tracked revision = 0;
   @tracked loading = false;
@@ -91,14 +92,10 @@ export default class ConversationMap extends Component {
       this.target = area;
       this.collectPosts();
       this.ready = true;
-      this.currentIndex = Math.max(
-        0,
-        this.stream.indexOf(
-          this.args.topic.postStream.posts.find(
-            (post) => post.post_number === this.currentNumber
-          )?.id
-        )
-      );
+      this.currentId = this.args.topic.postStream.posts.find(
+        (post) => post.post_number === this.currentNumber
+      )?.id;
+      this.readingIndex = Math.max(0, this.stream.indexOf(this.currentId));
     });
     this.appEvents.on("topic:current-post-scrolled", this.scrolled);
     return () => {
@@ -324,6 +321,17 @@ export default class ConversationMap extends Component {
 
   get stream() {
     return this._streamSnapshot || this.args.topic.postStream.stream;
+  }
+
+  get currentIndex() {
+    // A preview freezes stream order, while native reading updates use the live
+    // stream. Resolve the reading post in whichever order is currently shown.
+    // If it is no longer available, retain a bounded position until Core sends
+    // the next authoritative reading update.
+    return (
+      this.streamIndex.get(this.currentId) ??
+      clamp(this.readingIndex, 0, Math.max(0, this.stream.length - 1))
+    );
   }
 
   get readingLabel() {
@@ -570,7 +578,8 @@ export default class ConversationMap extends Component {
         }
         const liveStream = this.args.topic.postStream;
         const id = liveStream.stream[this.#lastScrollEvent.postIndex - 1];
-        this.currentIndex = this.streamIndex.get(id) ?? this.currentIndex;
+        this.readingIndex = this.streamIndex.get(id) ?? this.currentIndex;
+        this.currentId = id ?? this.currentId;
         const post = liveStream.posts.find((item) => item.id === id);
         this.currentNumber = post?.post_number || this.currentNumber;
         this.visibleCount =
