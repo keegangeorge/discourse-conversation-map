@@ -47,7 +47,7 @@ export default class ConversationMap extends Component {
   @tracked currentIndex = 0;
   @tracked visibleCount = 1;
   @tracked revision = 0;
-  @tracked loading = false;
+  @tracked previewPending = false;
   @tracked previewFailed = false;
   @tracked navigationFailed = false;
   @tracked returning = null;
@@ -490,6 +490,12 @@ export default class ConversationMap extends Component {
       });
   }
 
+  get loading() {
+    // Native scrolling can supply the selected post before its redundant
+    // preview request settles. Available content must not stay behind a spinner.
+    return this.previewPending && !this.preview;
+  }
+
   get failed() {
     // Native scrolling can supply a preview after its own request has failed.
     // That recovery must not hide a separate full-post navigation failure.
@@ -766,7 +772,7 @@ export default class ConversationMap extends Component {
     clearTimeout(this.#previewTimer);
     const selection = ++this.#selection;
     const id = this.stream[index];
-    this.loading = !this.#cache.has(id);
+    this.previewPending = !this.#cache.has(id);
     if (this.loading) {
       this.#previewTimer = setTimeout(
         async () => {
@@ -787,7 +793,7 @@ export default class ConversationMap extends Component {
             }
           } finally {
             if (selection === this.#selection && this.#topicId) {
-              this.loading = false;
+              this.previewPending = false;
             }
           }
         },
