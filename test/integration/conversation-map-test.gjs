@@ -225,14 +225,23 @@ module("Integration | Component | ConversationMap", function (hooks) {
       const last = model.postStream.posts.pop();
       let reject;
       const load = sinon.stub(PreviewLoader.prototype, "load").callsFake(
-        () => new Promise((_resolve, no) => { reject = no; })
+        () =>
+          new Promise((_resolve, no) => {
+            reject = no;
+          })
       );
       try {
         await render(
           <template>
             <div class="timeline-container">
-              <div class="timeline-scrollarea"><div class="timeline-scroller">Native timeline</div></div>
-              <div class="topic-navigation"><ConversationMap @active={{mobile}} @mobile={{mobile}} @topic={{model}} /></div>
+              <div class="timeline-scrollarea"><div
+                  class="timeline-scroller"
+                >Native timeline</div></div>
+              <div class="topic-navigation"><ConversationMap
+                  @active={{mobile}}
+                  @mobile={{mobile}}
+                  @topic={{model}}
+                /></div>
             </div>
           </template>
         );
@@ -247,23 +256,47 @@ module("Integration | Component | ConversationMap", function (hooks) {
         assert.dom(".conversation-map__body").hasAttribute("aria-busy", "true");
         // An unrelated native update must not dismiss a genuine loading state.
         model.postStream.posts[0].cooked = "<p>Updated opening</p>";
-        this.owner.lookup("service:app-events").trigger("topic:current-post-scrolled", { postIndex: 1 });
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        this.owner
+          .lookup("service:app-events")
+          .trigger("topic:current-post-scrolled", { postIndex: 1 });
+        await new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve))
+        );
         assert.dom(".conversation-map__status").includesText("Loading preview");
         model.postStream.posts.push(last);
-        this.owner.lookup("service:app-events").trigger("topic:current-post-scrolled", { postIndex: 3 });
+        this.owner
+          .lookup("service:app-events")
+          .trigger("topic:current-post-scrolled", { postIndex: 3 });
         await waitFor(".conversation-map__byline");
-        assert.dom(".conversation-map__byline").includesText("#9", "same selection shows local content before transport settles");
+        assert
+          .dom(".conversation-map__byline")
+          .includesText(
+            "#9",
+            "same selection shows local content before transport settles"
+          );
         assert.dom(".conversation-map__excerpt").hasText("Last");
         assert.dom(".conversation-map__status").doesNotExist();
-        assert.dom(".conversation-map__body").hasAttribute("aria-busy", "false");
+        assert
+          .dom(".conversation-map__body")
+          .hasAttribute("aria-busy", "false");
         assert.dom(track).hasAttribute("aria-valuenow", "3");
         if (mobile) {
-          assert.dom(".conversation-map-sheet__open").isNotDisabled().hasText("Open post");
+          assert
+            .dom(".conversation-map-sheet__open")
+            .isNotDisabled()
+            .hasText("Open post");
         }
-        assert.strictEqual(load.callCount, 1, "the original request remains pending without retry or reselection");
-        reject(new Error("Synthetic redundant preview failure after native cache"));
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        assert.strictEqual(
+          load.callCount,
+          1,
+          "the original request remains pending without retry or reselection"
+        );
+        reject(
+          new Error("Synthetic redundant preview failure after native cache")
+        );
+        await new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve))
+        );
         assert.dom(".conversation-map__byline").includesText("#9");
         assert.dom(".conversation-map__status").doesNotExist();
       } finally {
