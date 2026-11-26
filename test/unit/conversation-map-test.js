@@ -107,15 +107,30 @@ module("Unit | Lib | conversation-map", function () {
 
   test("excerpts preserve visible emoji alt text without adding thumbnails", function (assert) {
     const cases = [
-      ['<p>My vote: <img class="emoji" alt=":+1:" src="/emoji.png"></p>', "My vote: :+1:"],
-      ['<p>My vote: <img class="emoji" alt=":-1:" src="/emoji.png"></p>', "My vote: :-1:"],
+      [
+        '<p>My vote: <img class="emoji" alt=":+1:" src="/emoji.png"></p>',
+        "My vote: :+1:",
+      ],
+      [
+        '<p>My vote: <img class="emoji" alt=":-1:" src="/emoji.png"></p>',
+        "My vote: :-1:",
+      ],
       ['<p><img class="emoji" alt=":heart:" src="/emoji.png"></p>', ":heart:"],
       ['<p>A<img class="emoji" alt=":heart:">B</p>', "A:heart:B"],
-      ['<p>My vote: 👍</p>', "My vote: 👍"],
+      ["<p>My vote: 👍</p>", "My vote: 👍"],
       ['<p>Text<img class="emoji"><img class="emoji" alt=""></p>', "Text"],
-      ['<p><img class="emoji" alt="&lt;strong&gt;literal&lt;/strong&gt;"></p>', "<strong>literal</strong>"],
-      ['<p>Visible<img class="avatar emoji" alt="Avatar"><img alt="Photo"></p>', "Visible"],
-      ['<p>Visible<span class="spoiler"><img class="emoji" alt=":secret:"></span><span hidden><img class="emoji" alt=":hidden:"></span><span aria-hidden="true"><img class="emoji" alt=":aria-hidden:"></span></p><details><summary>Hidden</summary><img class="emoji" alt=":details:"></details><pre><code><img class="emoji" alt=":code:"></code></pre>', "Visible"],
+      [
+        '<p><img class="emoji" alt="&lt;strong&gt;literal&lt;/strong&gt;"></p>',
+        "<strong>literal</strong>",
+      ],
+      [
+        '<p>Visible<img class="avatar emoji" alt="Avatar"><img alt="Photo"></p>',
+        "Visible",
+      ],
+      [
+        '<p>Visible<span class="spoiler"><img class="emoji" alt=":secret:"></span><span hidden><img class="emoji" alt=":hidden:"></span><span aria-hidden="true"><img class="emoji" alt=":aria-hidden:"></span></p><details><summary>Hidden</summary><img class="emoji" alt=":details:"></details><pre><code><img class="emoji" alt=":code:"></code></pre>',
+        "Visible",
+      ],
     ];
     for (const [cooked, expected] of cases) {
       const post = inspectPost({ id: 1, cooked }, "http://localhost:3000");
@@ -124,7 +139,13 @@ module("Unit | Lib | conversation-map", function () {
       assert.strictEqual(post.imageCount, 0);
     }
     assert.strictEqual(
-      inspectPost({ id: 1, cooked: `<p>${"a".repeat(259)}<img class="emoji" alt=":heart:"></p>` }, "http://localhost:3000").text,
+      inspectPost(
+        {
+          id: 1,
+          cooked: `<p>${"a".repeat(259)}<img class="emoji" alt=":heart:"></p>`,
+        },
+        "http://localhost:3000"
+      ).text,
       `${"a".repeat(259)}:`,
       "the excerpt bound still applies after emoji substitution"
     );
