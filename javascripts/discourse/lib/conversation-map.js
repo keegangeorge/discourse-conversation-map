@@ -230,6 +230,11 @@ export function inspectPost(post, origin, uploadBases = []) {
       }
     }
   }
+  // Emoji are inline content, not photo thumbnails. Keep their textual
+  // equivalent in the inert excerpt after concealed content has been removed.
+  doc.querySelectorAll("img.emoji:not(.avatar)").forEach((img) => {
+    img.replaceWith(img.getAttribute("alt") || "");
+  });
   const hasCode = Boolean(doc.querySelector("pre code"));
   const hasVideo = Boolean(doc.querySelector("video, audio"));
   doc
