@@ -1,3 +1,4 @@
+import { headerOffset } from "discourse/lib/offset-calculator";
 import { tracked } from "@glimmer/tracking";
 import {
   click,
@@ -439,7 +440,7 @@ module("Integration | Component | ConversationMap", function (hooks) {
     }
   });
 
-  test("desktop preview height follows its viewport offset and stops measuring on close", async function (assert) {
+  test("desktop preview fits below the header and stops measuring on close", async function (assert) {
     const model = makeTopic();
     await render(
       <template>
@@ -453,10 +454,13 @@ module("Integration | Component | ConversationMap", function (hooks) {
     await waitFor(".conversation-map__track");
     await triggerKeyEvent(".conversation-map__track", "keydown", "Enter");
     const preview = find(".conversation-map__preview");
-    let top = 120;
+    const parent = preview.parentElement;
+    const shift = () =>
+      parseFloat(parent.style.getPropertyValue("--map-preview-top-shift")) || 0;
+    let naturalTop = 120;
     const rect = sinon
       .stub(preview, "getBoundingClientRect")
-      .callsFake(() => ({ top }));
+      .callsFake(() => ({ top: naturalTop + shift() }));
     const frames = () =>
       new Promise((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(resolve))
@@ -464,20 +468,51 @@ module("Integration | Component | ConversationMap", function (hooks) {
     try {
       window.dispatchEvent(new Event("resize"));
       await frames();
+      assert.strictEqual(shift(), 0, "a preview below the header is not moved");
       assert.strictEqual(
         preview.style.getPropertyValue("--map-preview-available-height"),
-        `${Math.max(0, window.innerHeight - top - 8)}px`,
+        `${Math.max(0, window.innerHeight - naturalTop - 8)}px`,
         "available space accounts for the actual top and an edge gap"
       );
-      top = 160;
+      naturalTop = -71.171875;
       window.dispatchEvent(new Event("scroll"));
       await frames();
+      const correctedTop = naturalTop + shift();
+      assert.strictEqual(
+        correctedTop,
+        headerOffset() + 8,
+        "scrolling the timeline above the viewport keeps preview controls below the header"
+      );
       assert.strictEqual(
         preview.style.getPropertyValue("--map-preview-available-height"),
-        `${Math.max(0, window.innerHeight - top - 8)}px`,
-        "scroll updates the viewport constraint"
+        `${Math.max(0, window.innerHeight - correctedTop - 8)}px`,
+        "height uses the corrected top and preserves the bottom edge gap"
+      );
+      for (let i = 0; i < 3; i++) {
+        window.dispatchEvent(new Event("resize"));
+        window.dispatchEvent(new Event("scroll"));
+        await frames();
+        assert.strictEqual(
+          naturalTop + shift(),
+          correctedTop,
+          "repeated measurements do not oscillate"
+        );
+      }
+      naturalTop = 160;
+      window.dispatchEvent(new Event("scroll"));
+      await frames();
+      assert.strictEqual(shift(), 0, "scrolling back clears the correction");
+      assert.strictEqual(
+        preview.style.getPropertyValue("--map-preview-available-height"),
+        `${Math.max(0, window.innerHeight - naturalTop - 8)}px`,
+        "scrolling back updates the viewport constraint"
       );
       await click(".conversation-map__close");
+      assert.strictEqual(
+        parent.style.getPropertyValue("--map-preview-top-shift"),
+        "",
+        "dismissal removes the hover bridge correction"
+      );
       const calls = rect.callCount;
       window.dispatchEvent(new Event("resize"));
       window.dispatchEvent(new Event("scroll"));

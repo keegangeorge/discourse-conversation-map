@@ -172,11 +172,18 @@ export default class ConversationMap extends Component {
 
   fitPreview = modifier((element) => {
     let frame;
+    let shift = 0;
+    const parent = element.parentElement;
     const measure = () => {
       frame = null;
+      // Subtract our previous correction so repeated measurements do not
+      // alternate between the natural and corrected positions.
+      const naturalTop = element.getBoundingClientRect().top - shift;
+      shift = Math.max(0, headerOffset() + 8 - naturalTop);
+      parent.style.setProperty("--map-preview-top-shift", `${shift}px`);
       const available = Math.max(
         0,
-        window.innerHeight - element.getBoundingClientRect().top - 8
+        window.innerHeight - naturalTop - shift - 8
       );
       element.style.setProperty(
         "--map-preview-available-height",
@@ -199,6 +206,7 @@ export default class ConversationMap extends Component {
       observer.disconnect();
       window.removeEventListener("resize", schedule);
       window.removeEventListener("scroll", schedule, true);
+      parent.style.removeProperty("--map-preview-top-shift");
     };
   });
 
