@@ -1,4 +1,3 @@
-import { headerOffset } from "discourse/lib/offset-calculator";
 import { tracked } from "@glimmer/tracking";
 import {
   click,
@@ -13,6 +12,7 @@ import {
 } from "@ember/test-helpers";
 import { module, test } from "qunit";
 import sinon from "sinon";
+import { headerOffset } from "discourse/lib/offset-calculator";
 import DiscourseURL from "discourse/lib/url";
 import Topic from "discourse/models/topic";
 import { setupRenderingTest } from "discourse/tests/helpers/component-test";
