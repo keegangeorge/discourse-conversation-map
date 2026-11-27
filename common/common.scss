@@ -584,6 +584,12 @@ body.has-conversation-map-sheet {
   }
 
   @media (height <= 450px) {
+    .conversation-map-sheet__content {
+      // Keep the preview scrollport usable when larger text and sheet controls
+      // exhaust the viewport. The sheet can scroll to reach its footer.
+      min-height: 8em;
+    }
+
     .conversation-map-sheet__steps {
       display: none;
     }
