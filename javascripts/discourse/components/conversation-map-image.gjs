@@ -27,7 +27,12 @@ export default class ConversationMapImage extends Component {
 
   <template>
     {{#if this.source}}
-      <img alt={{@image.alt}} src={{this.source}} ...attributes {{on "error" this.failed}} />
+      <img
+        alt={{@image.alt}}
+        src={{this.source}}
+        ...attributes
+        {{on "error" this.failed}}
+      />
     {{/if}}
   </template>
 }

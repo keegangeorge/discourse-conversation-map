@@ -45,9 +45,9 @@ export default <template>
             style={{post.style}}
           >
             {{#if post.images.length}}<ConversationMapImage
-                @image={{get post.images "0"}}
                 alt=""
                 loading="lazy"
+                @image={{get post.images "0"}}
               />{{else}}{{dIcon post.icon}}{{/if}}
             {{#if (gt post.imageCount 1)}}<span
                 class="conversation-map__media-count"
