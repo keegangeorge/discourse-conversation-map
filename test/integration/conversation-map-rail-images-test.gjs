@@ -70,6 +70,10 @@ module(
         assert
           .dom(rail)
           .hasAttribute("src", new URL(alternate, location.origin).href);
+        await triggerEvent(rail, "error", { bubbles: false });
+        assert
+          .dom(rail)
+          .doesNotExist("exhaustion does not leave a broken thumbnail");
         await focus(".conversation-map__track");
         await triggerKeyEvent(".conversation-map__track", "keydown", "Home");
         await waitFor(".conversation-map__photos img");
@@ -79,10 +83,6 @@ module(
         assert
           .dom(".conversation-map__photos img")
           .hasAttribute("src", new URL(preferred, location.origin).href);
-        await triggerEvent(rail, "error", { bubbles: false });
-        assert
-          .dom(rail)
-          .doesNotExist("exhaustion does not leave a broken thumbnail");
         assert
           .dom(".conversation-map__photos img")
           .exists(
