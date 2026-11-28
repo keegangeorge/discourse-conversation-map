@@ -60,6 +60,40 @@ module("Integration | Component | ConversationMap", function (hooks) {
     settings.sample_posts = originalSample;
   });
 
+  test("desktop preview contains wheel chaining without disabling either scroll area", async function (assert) {
+    const model = makeTopic();
+    await render(
+      <template>
+        <div class="timeline-container">
+          <div class="timeline-scrollarea"><div class="timeline-scroller">Native
+              timeline</div></div>
+          <ConversationMap @topic={{model}} />
+        </div>
+      </template>
+    );
+    await waitFor(".conversation-map__track");
+    await focus(".conversation-map__track");
+    await triggerKeyEvent(".conversation-map__track", "keydown", " ");
+    await waitFor(".conversation-map__byline");
+
+    for (const selector of [
+      ".conversation-map__preview",
+      ".conversation-map__body",
+    ]) {
+      const style = getComputedStyle(find(selector));
+      assert.strictEqual(
+        style.overscrollBehaviorY,
+        "contain",
+        `${selector} contains wheel chaining at its boundaries`
+      );
+      assert.strictEqual(
+        style.overflowY,
+        "auto",
+        `${selector} remains independently scrollable`
+      );
+    }
+  });
+
   test("held Enter opens a preview without navigating while arrow keys still repeat", async function (assert) {
     const model = makeTopic();
     resetMapSessionForUrl("/latest");
