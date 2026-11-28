@@ -1,5 +1,6 @@
 import { tracked } from "@glimmer/tracking";
 import {
+  clearRender,
   click,
   find,
   focus,
@@ -21,6 +22,13 @@ import {
   resetMapSessionForUrl,
 } from "../../discourse/lib/conversation-map-session.js";
 import PreviewLoader from "../../discourse/lib/preview-loader.js";
+
+class LoadedPostFixture {
+  @tracked cooked = "<p>Opening before edit</p>";
+  id = 101;
+  post_number = 1;
+  username = "sam";
+}
 
 class StreamFixture {
   @tracked streamFilters = {};
@@ -58,6 +66,64 @@ module("Integration | Component | ConversationMap", function (hooks) {
   hooks.afterEach(function () {
     settings.minimum_posts = originalMinimum;
     settings.sample_posts = originalSample;
+  });
+
+  test("loaded post edits refresh selected previews without a scroll event", async function (assert) {
+    for (const mobile of [false, true]) {
+      resetMapSessionForUrl("/latest");
+      const model = makeTopic();
+      const post = new LoadedPostFixture();
+      model.postStream.posts[0] = post;
+      await render(
+        <template>
+          <div class="timeline-container">
+            <div class="timeline-scrollarea"><div class="timeline-scroller">Native timeline</div></div>
+            <div class="topic-navigation"><ConversationMap @topic={{model}} @active={{mobile}} @mobile={{mobile}} /></div>
+          </div>
+        </template>
+      );
+      const track = ".conversation-map__track";
+      await waitFor(track);
+      await focus(track);
+      if (!mobile) {
+        await triggerKeyEvent(track, "keydown", "Enter");
+      }
+      await waitFor(".conversation-map__excerpt");
+      assert.dom(".conversation-map__excerpt").hasText("Opening before edit");
+      post.cooked = "<p>Opening after edit</p>";
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      await settled();
+      assert.dom(".conversation-map__excerpt").hasText("Opening after edit", "native tracked edits refresh the same selection");
+      assert.dom(track).hasAttribute("aria-valuenow", "1");
+      assert.dom(track).hasAttribute("aria-valuemax", "3");
+      assert.dom(track).isFocused();
+      assert.dom(".conversation-map-return").doesNotExist("a content edit creates no navigation detour");
+      await triggerKeyEvent(track, "keydown", "ArrowDown");
+      await triggerKeyEvent(track, "keydown", "ArrowUp");
+      assert.dom(".conversation-map__excerpt").hasText("Opening after edit", "reselection retains fresh content");
+      await clearRender();
+    }
+  });
+
+  test("queued loaded post refresh is cancelled on component teardown", async function (assert) {
+    const model = makeTopic();
+    const post = new LoadedPostFixture();
+    model.postStream.posts[0] = post;
+    await render(
+      <template>
+        <div class="timeline-container">
+          <div class="timeline-scrollarea"><div class="timeline-scroller">Native timeline</div></div>
+          <ConversationMap @topic={{model}} />
+        </div>
+      </template>
+    );
+    await waitFor(".conversation-map__track");
+    post.cooked = "<p>Edit immediately before teardown</p>";
+    await clearRender();
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    assert.dom(".conversation-map-mount").doesNotExist();
+    assert.dom(".conversation-map__preview").doesNotExist();
+    assert.dom(".timeline-scrollarea").doesNotExist();
   });
 
   test("held Enter opens a preview without navigating while arrow keys still repeat", async function (assert) {
