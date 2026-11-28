@@ -4,6 +4,7 @@ import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
 import dIcon from "discourse/ui-kit/helpers/d-icon";
 import dPointerDrag from "discourse/ui-kit/modifiers/d-pointer-drag";
 import { i18n } from "discourse-i18n";
+import ConversationMapImage from "./conversation-map-image.gjs";
 
 export default <template>
   <div class="conversation-map__surface">
@@ -43,10 +44,10 @@ export default <template>
             }}
             style={{post.style}}
           >
-            {{#if post.images.length}}<img
+            {{#if post.images.length}}<ConversationMapImage
+                @image={{get post.images "0"}}
                 alt=""
                 loading="lazy"
-                src={{get (get post.images "0") "url"}}
               />{{else}}{{dIcon post.icon}}{{/if}}
             {{#if (gt post.imageCount 1)}}<span
                 class="conversation-map__media-count"
