@@ -1353,6 +1353,12 @@ module("Integration | Component | ConversationMap", function (hooks) {
     );
     await waitFor(".conversation-map__track");
     const events = this.owner.lookup("service:app-events");
+    // Finish initial native setup frames before installing the fake RAF clock.
+    // The test below then owns only the scroll/topic-change work it schedules.
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))
+    );
+    await settled();
     const clock = sinon.useFakeTimers({
       toFake: ["requestAnimationFrame", "cancelAnimationFrame"],
     });
