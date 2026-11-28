@@ -77,8 +77,14 @@ module("Integration | Component | ConversationMap", function (hooks) {
       await render(
         <template>
           <div class="timeline-container">
-            <div class="timeline-scrollarea"><div class="timeline-scroller">Native timeline</div></div>
-            <div class="topic-navigation"><ConversationMap @topic={{model}} @active={{mobile}} @mobile={{mobile}} /></div>
+            <div class="timeline-scrollarea"><div
+                class="timeline-scroller"
+              >Native timeline</div></div>
+            <div class="topic-navigation"><ConversationMap
+                @topic={{model}}
+                @active={{mobile}}
+                @mobile={{mobile}}
+              /></div>
           </div>
         </template>
       );
@@ -91,16 +97,27 @@ module("Integration | Component | ConversationMap", function (hooks) {
       await waitFor(".conversation-map__excerpt");
       assert.dom(".conversation-map__excerpt").hasText("Opening before edit");
       post.cooked = "<p>Opening after edit</p>";
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))
+      );
       await settled();
-      assert.dom(".conversation-map__excerpt").hasText("Opening after edit", "native tracked edits refresh the same selection");
+      assert
+        .dom(".conversation-map__excerpt")
+        .hasText(
+          "Opening after edit",
+          "native tracked edits refresh the same selection"
+        );
       assert.dom(track).hasAttribute("aria-valuenow", "1");
       assert.dom(track).hasAttribute("aria-valuemax", "3");
       assert.dom(track).isFocused();
-      assert.dom(".conversation-map-return").doesNotExist("a content edit creates no navigation detour");
+      assert
+        .dom(".conversation-map-return")
+        .doesNotExist("a content edit creates no navigation detour");
       await triggerKeyEvent(track, "keydown", "ArrowDown");
       await triggerKeyEvent(track, "keydown", "ArrowUp");
-      assert.dom(".conversation-map__excerpt").hasText("Opening after edit", "reselection retains fresh content");
+      assert
+        .dom(".conversation-map__excerpt")
+        .hasText("Opening after edit", "reselection retains fresh content");
       await clearRender();
     }
   });
@@ -112,7 +129,8 @@ module("Integration | Component | ConversationMap", function (hooks) {
     await render(
       <template>
         <div class="timeline-container">
-          <div class="timeline-scrollarea"><div class="timeline-scroller">Native timeline</div></div>
+          <div class="timeline-scrollarea"><div class="timeline-scroller">Native
+              timeline</div></div>
           <ConversationMap @topic={{model}} />
         </div>
       </template>
@@ -120,7 +138,9 @@ module("Integration | Component | ConversationMap", function (hooks) {
     await waitFor(".conversation-map__track");
     post.cooked = "<p>Edit immediately before teardown</p>";
     await clearRender();
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))
+    );
     assert.dom(".conversation-map-mount").doesNotExist();
     assert.dom(".conversation-map__preview").doesNotExist();
     assert.dom(".timeline-scrollarea").doesNotExist();
