@@ -81,9 +81,9 @@ module("Integration | Component | ConversationMap", function (hooks) {
                 class="timeline-scroller"
               >Native timeline</div></div>
             <div class="topic-navigation"><ConversationMap
-                @topic={{model}}
                 @active={{mobile}}
                 @mobile={{mobile}}
+                @topic={{model}}
               /></div>
           </div>
         </template>

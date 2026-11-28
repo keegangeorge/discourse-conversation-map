@@ -556,19 +556,6 @@ export default class ConversationMap extends Component {
     return trustHTML(`top: ${percentForIndex(index, this.stream.length)}%;`);
   }
 
-  #postSnapshot(post) {
-    return [
-      post.id,
-      post.post_number,
-      post.cooked,
-      post.username,
-      post.created_at,
-      post.action_code,
-      post.hidden,
-      post.deleted_at,
-    ];
-  }
-
   collectPosts() {
     let changed = false;
     for (const post of this.args.topic.postStream.posts) {
@@ -960,6 +947,19 @@ export default class ConversationMap extends Component {
     if (this.args.active) {
       this.appEvents.trigger("topic:toggle-progress-expansion");
     }
+  }
+
+  #postSnapshot(post) {
+    return [
+      post.id,
+      post.post_number,
+      post.cooked,
+      post.username,
+      post.created_at,
+      post.action_code,
+      post.hidden,
+      post.deleted_at,
+    ];
   }
 
   #releaseCapture() {
