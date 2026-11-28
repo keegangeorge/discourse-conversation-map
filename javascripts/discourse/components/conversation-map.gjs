@@ -126,12 +126,17 @@ export default class ConversationMap extends Component {
       this.#postSnapshot(post);
     }
     const generation = this.#generation;
-    const frame = requestAnimationFrame(() => {
+    let frame = requestAnimationFrame(() => {
+      frame = null;
       if (this.#topicId && generation === this.#generation) {
         this.collectPosts();
       }
     });
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      if (frame !== null) {
+        cancelAnimationFrame(frame);
+      }
+    };
   });
 
   syncMobile = modifier((_element, [active, ready]) => {
