@@ -116,6 +116,24 @@ export default class ConversationMap extends Component {
     };
   });
 
+  syncLoadedPosts = modifier((_element, [ready]) => {
+    if (!ready) {
+      return;
+    }
+    // Consume native Post fields in the modifier's tracked execution. Deferring
+    // the reads too would leave content edits dependent on a scroll event.
+    for (const post of this.args.topic.postStream.posts) {
+      this.#postSnapshot(post);
+    }
+    const generation = this.#generation;
+    const frame = requestAnimationFrame(() => {
+      if (this.#topicId && generation === this.#generation) {
+        this.collectPosts();
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  });
+
   syncMobile = modifier((_element, [active, ready]) => {
     if (!this.args.mobile || !ready) {
       return;
@@ -249,7 +267,11 @@ export default class ConversationMap extends Component {
       }
       let changed = false;
       for (const post of posts) {
-        changed = this.#remember(post) || changed;
+        // A redundant response may predate an edit already loaded by Core.
+        const loaded = this.args.topic.postStream.posts.find(
+          (item) => item.id === post.id
+        );
+        changed = this.#remember(loaded || post) || changed;
       }
       if (changed) {
         this.revision++;
@@ -534,19 +556,23 @@ export default class ConversationMap extends Component {
     return trustHTML(`top: ${percentForIndex(index, this.stream.length)}%;`);
   }
 
+  #postSnapshot(post) {
+    return [
+      post.id,
+      post.post_number,
+      post.cooked,
+      post.username,
+      post.created_at,
+      post.action_code,
+      post.hidden,
+      post.deleted_at,
+    ];
+  }
+
   collectPosts() {
     let changed = false;
     for (const post of this.args.topic.postStream.posts) {
-      const snapshot = [
-        post.id,
-        post.post_number,
-        post.cooked,
-        post.username,
-        post.created_at,
-        post.action_code,
-        post.hidden,
-        post.deleted_at,
-      ];
+      const snapshot = this.#postSnapshot(post);
       const previous = this.#loadedSnapshots.get(post);
       if (previous?.every((value, index) => value === snapshot[index])) {
         continue;
@@ -1253,6 +1279,7 @@ export default class ConversationMap extends Component {
     <span
       class="conversation-map-mount"
       {{this.setup @topic.id}}
+      {{this.syncLoadedPosts this.ready}}
       {{this.watchEligibility this.enabled this.filterKey}}
       {{this.syncMobile @active this.ready}}
     ></span>
